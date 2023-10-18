@@ -67,9 +67,92 @@ class Unit:
             elif direction == "d":
                 self.pos += 4
 
+
 # heavy, light, worker
-# class meleeUnit(Unit):
-#     def attack():
+class meleeUnit(Unit):
+    def canAttack(self, targetUnit):
+        if self.x == targetUnit.x and abs(self.y - targetUnit.y) ==1:
+            return True
+        elif self.y == targetUnit.y and abs(self.x - targetUnit.x) ==1:
+            return True
+        else:
+            return False
+
+    def possibleAttackPos(self, targetUnit):
+
+        y1 = targetUnit.y
+        if targetUnit.x == 0:
+            x1 = targetUnit.x + 1
+            x2 = None
+            
+        elif targetUnit.x == 1 or targetUnit.x == 2:
+            x1 = targetUnit.x - 1
+            x2 = targetUnit.x + 1
+        
+        elif targetUnit.x == 3:
+            x1 = targetUnit.x - 1
+            x2 = None    
+
+        x3 = targetUnit.x
+        if targetUnit.y ==0:
+            y2 = targetUnit.y + 1
+            y3 = None
+            
+        elif targetUnit.y ==1 or targetUnit.y==2:
+            y2 = targetUnit.y - 1
+            y3 = targetUnit.y + 1
+        
+        elif targetUnit.y ==3:
+            y2 = targetUnit.y - 1
+            y3 = None
+
+        return x1, y1, x2, y1, x3, y2, x3, y3
+        
+
+
+    def attackClosest(self, unitList):
+        enemyUnits = []
+        distances = []
+        for unit in unitList:
+            if unit.ownerID != self.ownerID:
+                enemyUnits.append(unit)
+                distances.append(sqrt(pow((unit.x - self.x), 2) + pow((unit.y - self.y), 2)))
+        targetUnitIndex = distances.index(min(distances))
+        targetUnit = enemyUnits[targetUnitIndex]
+        # print(enemyUnits)
+        # print(distances)
+        # print(targetUnit)
+
+        if self.canAttack(targetUnit):
+            print("YES")
+            self.actionList.append("attack")
+
+        else:
+            print("NO")
+            x1, y1, x2, y1, x3, y2, x3, y3 = self.possibleAttackPos(targetUnit) #TODO: find the shortest later / debug the passing over issue!
+            # print("X1 X2\n")
+            # print(x1, y1, x2, y2)
+            diffX = x1 - self.x 
+            diffY = y1 - self.y
+
+            if diffX >0:
+                for i in range(abs(diffX)):
+                    self.actionList.append("down")
+            elif diffX<0:
+                for i in range(abs(diffX)):
+                    self.actionList.append("up")
+            
+            if diffY >0:
+                for i in range(abs(diffY)):
+                    self.actionList.append("right")
+            elif diffY<0:
+                for i in range(abs(diffY)):
+                    self.actionList.append("left")
+
+            # findAttackPath()
+            self.actionList.append("attack")
+        print(self.actionList)
+
 
 class rangedUnit(Unit):
 
@@ -174,6 +257,7 @@ def isOver(unitList):
 #                                                    Main                                                     #
 #                                                                                                             #
 ###############################################################################################################
+# assumption: I'm assuming all actions durations are equal to one time step!
 
 b = Board()
 b.Draw()
