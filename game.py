@@ -1,5 +1,4 @@
-from cmath import sqrt
-
+import math
 
 class Board:
 
@@ -67,8 +66,10 @@ class Unit:
             elif direction == "d":
                 self.pos += 4
 
-
-# heavy, light, worker
+################################################################################################################################################################
+################################################################################################################################################################
+################################################################################################################################################################
+# heavy, light, worker for attacking
 class meleeUnit(Unit):
     def canAttack(self, targetUnit):
         if self.x == targetUnit.x and abs(self.y - targetUnit.y) ==1:
@@ -79,7 +80,6 @@ class meleeUnit(Unit):
             return False
 
     def possibleAttackPos(self, targetUnit):
-
         y1 = targetUnit.y
         if targetUnit.x == 0:
             x1 = targetUnit.x + 1
@@ -109,23 +109,22 @@ class meleeUnit(Unit):
         return x1, y1, x2, y1, x3, y2, x3, y3
         
 
-
     def attackClosest(self, unitList):
         enemyUnits = []
         distances = []
         for unit in unitList:
             if unit.ownerID != self.ownerID:
                 enemyUnits.append(unit)
-                distances.append(sqrt(pow((unit.x - self.x), 2) + pow((unit.y - self.y), 2)))
+                distances.append(math.sqrt(pow((unit.x - self.x), 2) + pow((unit.y - self.y), 2)))
         targetUnitIndex = distances.index(min(distances))
         targetUnit = enemyUnits[targetUnitIndex]
         # print(enemyUnits)
-        # print(distances)
-        # print(targetUnit)
+        print(distances)
+        print(targetUnit.name)
 
         if self.canAttack(targetUnit):
             print("YES")
-            self.actionList.append("attack")
+            self.actionList.append(["attack", targetUnit])
 
         else:
             print("NO")
@@ -137,23 +136,35 @@ class meleeUnit(Unit):
 
             if diffX >0:
                 for i in range(abs(diffX)):
-                    self.actionList.append("down")
+                    self.actionList.append(["down", None])
             elif diffX<0:
                 for i in range(abs(diffX)):
-                    self.actionList.append("up")
+                    self.actionList.append(["up", None])
             
             if diffY >0:
                 for i in range(abs(diffY)):
-                    self.actionList.append("right")
+                    self.actionList.append(["right", None])
             elif diffY<0:
                 for i in range(abs(diffY)):
-                    self.actionList.append("left")
+                    self.actionList.append(["left", None])
 
             # findAttackPath()
-            self.actionList.append("attack")
+            self.actionList.append(["attack", targetUnit])
         print(self.actionList)
 
+################################################################################################################################################################
+################################################################################################################################################################
+################################################################################################################################################################
+class workerUnit(meleeUnit):
+    def collect():
+        pass
+    def build():
+        pass
 
+
+################################################################################################################################################################
+################################################################################################################################################################
+################################################################################################################################################################
 class rangedUnit(Unit):
 
     def canAttack(self, targetUnit):
@@ -189,8 +200,10 @@ class rangedUnit(Unit):
         distances = []
         for unit in unitList:
             if unit.ownerID != self.ownerID:
+                print(unit.name)
                 enemyUnits.append(unit)
-                distances.append(sqrt(pow((unit.x - self.x), 2) + pow((unit.y - self.y), 2)))
+                distances.append(math.sqrt(pow((unit.x - self.x), 2) + pow((unit.y - self.y), 2)))
+        print(distances)
         targetUnitIndex = distances.index(min(distances))
         targetUnit = enemyUnits[targetUnitIndex]
         # print(enemyUnits)
@@ -199,7 +212,7 @@ class rangedUnit(Unit):
 
         if self.canAttack(targetUnit):
             print("YES")
-            self.actionList.append("attack")
+            self.actionList.append(["attack", targetUnit])
 
         else:
             print("NO")
@@ -211,30 +224,37 @@ class rangedUnit(Unit):
 
             if diffX >0:
                 for i in range(abs(diffX)):
-                    self.actionList.append("down")
+                    self.actionList.append(["down", None])
             elif diffX<0:
                 for i in range(abs(diffX)):
-                    self.actionList.append("up")
+                    self.actionList.append(["up", None])
             
             if diffY >0:
                 for i in range(abs(diffY)):
-                    self.actionList.append("right")
+                    self.actionList.append(["right", None])
             elif diffY<0:
                 for i in range(abs(diffY)):
-                    self.actionList.append("left")
+                    self.actionList.append(["left", None])
 
             # findAttackPath()
-            self.actionList.append("attack")
+            self.actionList.append(["attack", targetUnit])
         print(self.actionList)
 
 
 
-def evaluate(action, u_me, u_enemy):
-    if action == "attack":
+def evaluate(action, u_me):
+
+    if action[0] == "attack":
+        u_enemy = action[1]
+        print(u_enemy.name)
         if u_me.canAttack(u_enemy):
             u_enemy.hitpoints -= 2
             print("ATTACK DONE")
     else:
+
+        action = action[0] # direction, None, None
+        print(action)
+        print("INJA")
         if action == "right":
             u_me.y += 1
         elif action == "left":
@@ -244,12 +264,21 @@ def evaluate(action, u_me, u_enemy):
         elif action == "down":
             u_me.x += 1
      
-def isOver(unitList):
-    for each in unitList:
-        if each.hitpoints <=0:
-            print("GAME OVER")
-            return True
-    return False
+def isOver(playerBasedList):
+    player1 = playerBasedList[0]
+    player2 = playerBasedList[1]
+    for unit in player1:
+        if unit.hitpoints <= 0:
+            continue
+        else:
+            break
+    for unit in player2:
+        if unit.hitpoints <= 0:
+            continue
+        else:
+            return False
+
+    return True
 
 
 ###############################################################################################################
@@ -262,11 +291,24 @@ def isOver(unitList):
 b = Board()
 b.Draw()
 
-unitList = []
-u1 = rangedUnit(3, 3, "P1", 1, 6)
-u2 = rangedUnit(1, 2, "P2", 2, 6)
+unitList = [] #TODO: later, make a config and automatically add these
+u1 = rangedUnit(3, 3, "R1", 1, 6)
+u2 = rangedUnit(1, 2, "R2", 2, 6)
+u3 = meleeUnit(0, 0, "H1", 1, 6)
+u4 = meleeUnit(1, 3, "H2", 2, 6)
+
 unitList.append(u1)
 unitList.append(u2)
+unitList.append(u3)
+unitList.append(u4)
+
+playerBasedList = [[],[]]
+for each in unitList:
+    if each.ownerID == 1:    
+        playerBasedList[0].append(each)
+    elif each.ownerID == 2:    
+        playerBasedList[1].append(each)
+# print(playerBasedList)
 b.update_board(unitList)
 b.Draw()
 
@@ -274,22 +316,26 @@ gameOver = False
 t = 0
 while(gameOver==False):
     if t%10==0:
-        u1.attackClosest(unitList)
+        u4.attackClosest(unitList)
         # u2.attackClosest(unitList)
-    if u1.actionList:
-        action1 = u1.actionList.pop(0)
-        print("FIRST ACTION of U1 POPPED: "+ action1)
-        evaluate(action1, u1, u2)
-    if u2.actionList:
-        action2 = u2.actionList.pop(0)
-        print("FIRST ACTION of U2 POPPED: "+ action2)
-        evaluate(action2, u2, u1)
 
-    
+    for eachU in unitList:
+        if eachU.actionList:
+            action1 = eachU.actionList.pop(0)
+            print("FIRST ACTION of %s POPPED: "%eachU.name)
+            print(action1)
+            evaluate(action1, eachU)
+
+
+    # updating the board and printing configs
     b.update_board(unitList)
     b.Draw()
-    t +=1
+    for u in unitList:
+        print(u.name, ": ", u.hitpoints)
 
-    input("T=%s ended!"%t)
-    if isOver(unitList):
+
+    # check if the game is over
+    if isOver(playerBasedList):
         gameOver =True
+    input("T=%s ended!"%t)
+    t +=1
