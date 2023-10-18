@@ -41,12 +41,6 @@ class Unit:
         self.hitpoints = hitpoints
         self.actionList = []
 
-# heavy, light, 
-# class meleeUnit(Unit):
-#     def attack():
-
-class rangedUnit(Unit):
-
     def canMove(self, direction):
         if direction == "l" and self.pos in [0, 4, 8, 12]:
             print("CANNOT MOVE LEFT!\n")
@@ -72,6 +66,12 @@ class rangedUnit(Unit):
                 self.pos -= 4
             elif direction == "d":
                 self.pos += 4
+
+# heavy, light, worker
+# class meleeUnit(Unit):
+#     def attack():
+
+class rangedUnit(Unit):
 
     def canAttack(self, targetUnit):
         if self.x == targetUnit.x and abs(self.y - targetUnit.y) ==2:
@@ -204,7 +204,8 @@ while(gameOver==False):
     
     b.update_board(unitList)
     b.Draw()
+    t +=1
+
+    input("T=%s ended!"%t)
     if isOver(unitList):
         gameOver =True
-    t +=1
-    input("T=%s ended!"%t)
