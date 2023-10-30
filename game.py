@@ -1,5 +1,7 @@
 import math
 import numpy as np
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
+
 class Board:
 
     def __init__(self):
@@ -165,9 +167,11 @@ class meleeUnit(Unit):
             # findAttackPath()
             self.actionList.append(["attack", targetUnit])
         # print(self.actionList)
+
 ################################################################################################################################################################
 ################################################################################################################################################################
 ################################################################################################################################################################
+
 def countUnitTypes(UnitList, q):
     unitTypes = {"ranged":0, "heavy":0, "light":0, "worker":0, "barrack":0, "base":0}
     for each in UnitList:
@@ -445,13 +449,13 @@ while(gameOver==False):
     #     print("***\n")
     # input()
 
-    data = np.zeros((16, 2))
+    data = np.zeros((4,4, 2))
     label= np.zeros(21)
     flag = False
 
     for eachU in unitList:
         if eachU == u2:
-            data[(u2.x*4) + u2.y] = [1, 0]
+            data[u2.x][u2.y] = [1, 0]
             action = eachU.actionList[0]
             if action[0] == "attack":
                 u_enemy = action[1]
@@ -470,7 +474,7 @@ while(gameOver==False):
                 label[19] = 1
                 flag = True
         else:
-            data[(eachU.x*4) + eachU.y] = [0, 1]
+            data[eachU.x][eachU.y] = [0, 1]
     
     if flag == False:    
         label[20] = 1 #do nothing
@@ -504,7 +508,7 @@ while(gameOver==False):
         print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
 
     # print(t)
-    input("T=%s endxed!"%t)
+    # input("T=%s endxed!"%t)
     t +=1
 
 
@@ -535,73 +539,38 @@ print(x.shape)
 print(y.shape)
 
 
-#classification -> the sum should be 1, and its for the the probability of attacking (the attack is done)
-model = Sequential()
-model.add(Dense(1, input_shape=(16,2)))
-model.add(Activation('relu'))
-model.add(Flatten())
-model.add(Dense(32))
-model.add(Activation('relu'))
-model.add(Dense(21))
-model.add(Activation('softmax')) 
-model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']) 
-model.summary()
+num_filters = 8
+filter_size = 3
+pool_size = 2
 
-history = model.fit(x, y, epochs=30, batch_size=4)
+model = Sequential([
+  Conv2D(num_filters, filter_size, input_shape=(4, 4, 2)),
+  MaxPooling2D(pool_size=pool_size),
+  Flatten(),
+  Dense(21, activation='softmax'),
+])
 
-_, accuracy = model.evaluate(x, y)
-print('Accuracy: %.2f' % (accuracy*100))
+model.compile(
+  'adam',
+  loss='categorical_crossentropy',
+  metrics=['accuracy'],
+)
 
-# plt.plot(history.history['accuracy'])
-# # plt.plot(history.history['val_accuracy'])
-# plt.title('model accuracy')
-# plt.ylabel('accuracy')
-# plt.xlabel('epoch')
-# plt.legend(['train', 'val'], loc='upper left')
-# plt.show()
+model.fit(
+  x,
+  y,
+  epochs=30,
+)
+
+
 # test = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],[0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]])
-test = np.zeros((1,16,2))
+# test = np.zeros((1,16,2))
 
-test[0][3][0] = 1
-test[0][0][1] = 1
-test[0][12][1] = 1
-print(test)
-print(test.shape)
-y_pred = model.predict(test)
-print(y_pred)
-# #Converting predictions to label
-# pred = list()
-# for i in range(len(y_pred)):
-#     pred.append(np.argmax(y_pred[i]))
-
-
-
-
-
-
-# x = np.array([[0,0,0,0,0,0,1,0,0,0,0,0,-1,0,-1,0], [1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1], [-1,-1,0,0,0,0,0,0,0,0,0,0,0,-1,0,1], [-1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,-1]])
-# y = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]) 
-# model = Sequential()
-# model.add(Dense(8, input_shape=(16,)))
-# model.add(Activation('sigmoid'))
-# model.add(Dense(32))
-# model.add(Activation('sigmoid'))
-# model.add(Dense(16))
-# model.add(Activation('softmax')) 
-# # Compile the model and calculate its accuracy:
-# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']) 
-# # Print a summary of the Keras model:
-# model.summary()
-
-
-# model.fit(x, y, epochs=10, batch_size=1)
-# # evaluate the keras model
-# _, accuracy = model.evaluate(x, y)
-# print('Accuracy: %.2f' % (accuracy*100))
-
-# y_pred = model.predict([[0,0,0,1,0,0,0,0,0,0,0,0,-1,0,-1,0]])
+# test[0][3][0] = 1
+# test[0][0][1] = 1
+# test[0][12][1] = 1
+# print(test)
+# print(test.shape)
+# y_pred = model.predict(test)
 # print(y_pred)
-# #Converting predictions to label
-# pred = list()
-# for i in range(len(y_pred)):
-#     pred.append(np.argmax(y_pred[i]))
+
