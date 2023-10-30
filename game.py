@@ -29,9 +29,11 @@ class Board:
         tmpBoard = {key: [] for key in range(16)}
         # print(tmpBoard)
         for unit in unitList:
-            if unit.hitpoints !=0:
+            if unit.hitpoints >0:
                 # tmpBoard[unit.x*4 + unit.y].append(unit.name)
-                self.board[unit.x*4 + unit.y] = unit.name 
+                self.board[(unit.x*4) + unit.y] = unit.name 
+            elif unit.hitpoints <=0:
+                unitList.remove(unit)
 
         # for u in tmpBoard:
         #     name  = ""
@@ -50,7 +52,7 @@ class Unit:
         self.hitpoints = hitpoints
         self.actionList = []
         self.active = False
-        self.pos = 4*self.x + self.y
+        # self.pos = (self.x*4) + self.y
 
     def canMove(self, direction):
         if direction == "l" and self.pos in [0, 4, 8, 12]:
@@ -226,14 +228,21 @@ class workerUnit(meleeUnit):
 ################################################################################################################################################################
 ################################################################################################################################################################
 class rangedUnit(Unit):
+    def calculateDistance(self, x1, x2, y1, y2):
+        return math.sqrt(pow((x1 - x2), 2) + pow((y1 - y2), 2))
 
     def canAttack(self, targetUnit):
-        if self.x == targetUnit.x and abs(self.y - targetUnit.y) ==2:
-            return True
-        elif self.y == targetUnit.y and abs(self.x - targetUnit.x) ==2:
+        if self.calculateDistance(self.x, targetUnit.x, self.y, targetUnit.y) <=2:
             return True
         else:
             return False
+
+        # if self.x == targetUnit.x and abs(self.y - targetUnit.y) ==2:
+        #     return True
+        # elif self.y == targetUnit.y and abs(self.x - targetUnit.x) ==2:
+        #     return True
+        # else:
+        #     return False
 
     def possibleAttackPos(self, targetUnit):
 
@@ -309,11 +318,11 @@ def evaluate(action, u_me):
         # print(u_enemy.name)
         if u_me.canAttack(u_enemy):
             u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0;
-            print("ATTACK DONE")
+            print("ATTACK to %s DONE"%u_enemy.name)
 
     elif action[0] == "buildBarrack":
         #TODO: double check if it is empty to make
-        u = Barrack(action[1], action[2], "B_%s"%action[3], action[3], action[4])
+        u = Barrack(action[1], action[2], "B%s"%action[3], action[3], action[4])
         unitList.append(u)
 
     elif action[0] == "trainRanged":
@@ -384,9 +393,11 @@ unitList = [] #TODO: later, make a config and automatically add these
 # u2 = rangedUnit(1, 2, "R2", 2, 10)
 # u5 = workerUnit(3, 1, "W1", 1, 10)
 
-u2 = rangedUnit(0, 1, "R2", 2, 10)
-u5 = workerUnit(2, 1, "W1", 1, 10)
-u6 = workerUnit(0, 3, "W1", 1, 6)
+u2 = rangedUnit(0, 1, "R2", 2, 100)
+u5 = workerUnit(3, 3, "W1", 1, 10)
+
+# u5 = workerUnit(2, 1, "W1", 1, 100)
+# u6 = workerUnit(0, 3, "W1", 1, 6)
 # u3 = meleeUnit(0, 0, "H1", 1, 6)
 # u4 = meleeUnit(1, 3, "H2", 2, 6)
 # u6 = Barrack(2, 3, "BR1", 1, 6)
@@ -394,7 +405,7 @@ u6 = workerUnit(0, 3, "W1", 1, 6)
 # unitList.append(u1)
 unitList.append(u2)
 unitList.append(u5)
-unitList.append(u6)
+# unitList.append(u6)
 
 playerBasedList = updatePlayerBasedList(unitList)
 b.update_board(unitList)
@@ -411,7 +422,15 @@ while(gameOver==False):
             if u.active == False: # ready to assign actions
                 u.build("barrack", 3, 0, u5.ownerID, 10)
                 u.active = True
-        if isinstance(u, rangedUnit) or isinstance(u, meleeUnit) or isinstance(u, workerUnit): 
+        if t%2 ==0 and isinstance(u, workerUnit):
+            if u.active == False:
+                u.attackClosest(unitList)
+                u.active = True
+        if t%2 ==1 and isinstance(u, workerUnit):
+            if u.active == False:
+                u.actionList.append(np.random.choice(["left", "right", "up", "down"]))
+                u.active = True
+        if isinstance(u, rangedUnit) or isinstance(u, meleeUnit): 
             if u.active == False:
                 u.attackClosest(unitList)
                 u.active = True
@@ -420,30 +439,45 @@ while(gameOver==False):
                 u.train("ranged", u.ownerID, 5)
                 u.active = True
 
-    for u in unitList:
-        print(u)
-        print(u.actionList)
-        print("***\n")
+    # for u in unitList:
+    #     print(u)
+    #     print(u.actionList)
+    #     print("***\n")
     # input()
 
     data = np.zeros((16, 2))
-    label= np.zeros(17)
+    label= np.zeros(21)
     flag = False
+
     for eachU in unitList:
         if eachU == u2:
-            data[u2.pos] = [1, 0]
+            data[(u2.x*4) + u2.y] = [1, 0]
             action = eachU.actionList[0]
             if action[0] == "attack":
                 u_enemy = action[1]
-                label[u_enemy.pos] = 1
+                label[(u_enemy.x*4) + u_enemy.y] = 1
                 flag = True
-
+            elif action[0] == "left":
+                label[16] = 1
+                flag = True
+            elif action[0] == "right":
+                label[17] = 1
+                flag = True
+            elif action[0] == "up":
+                label[18] = 1
+                flag = True
+            elif action[0] == "down":
+                label[19] = 1
+                flag = True
         else:
-            data[eachU.pos] = [0, 1]
+            data[(eachU.x*4) + eachU.y] = [0, 1]
     
     if flag == False:    
-        label[16] = 1 #do nothing
-    
+        label[20] = 1 #do nothing
+
+    # print(data)
+    # print(label)
+    print("\nLET'S EVALUATE\n\n")
     #evaluate
     for eachU in unitList:
         if eachU.actionList:
@@ -454,8 +488,7 @@ while(gameOver==False):
             print(action1)
             evaluate(action1, eachU)
 
-    # print(data)
-    # print(label)
+
     dataset.append(data)
     labels.append(label)
 
@@ -468,9 +501,10 @@ while(gameOver==False):
         gameOver =True
 
     for u in unitList:
-        print(u.name, ": ", u.hitpoints)
+        print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
 
-    input("T=%s ended!"%t)
+    # print(t)
+    input("T=%s endxed!"%t)
     t +=1
 
 
@@ -508,24 +542,10 @@ model.add(Activation('relu'))
 model.add(Flatten())
 model.add(Dense(32))
 model.add(Activation('relu'))
-model.add(Dense(17))
+model.add(Dense(21))
 model.add(Activation('softmax')) 
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']) 
 model.summary()
-
-regression = False
-#regression -> saying which of them is attackable and which of them is not. (attackable)
-if regression:
-    model = Sequential()
-    model.add(Dense(8, input_shape=(16,2)))
-    model.add(Activation('relu'))
-    model.add(Dense(32))
-    model.add(Activation('relu'))
-    model.add(Dense(1))
-    model.add(Activation('sigmoid')) 
-    model.compile(loss='mse', optimizer=keras.optimizers.Adam(lr=0.01), metrics=['accuracy']) 
-    model.summary()
-
 
 history = model.fit(x, y, epochs=30, batch_size=4)
 
