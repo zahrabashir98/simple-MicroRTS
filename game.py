@@ -50,6 +50,7 @@ class Unit:
         self.hitpoints = hitpoints
         self.actionList = []
         self.active = False
+        self.pos = 4*self.x + self.y
 
     def canMove(self, direction):
         if direction == "l" and self.pos in [0, 4, 8, 12]:
@@ -167,7 +168,7 @@ class meleeUnit(Unit):
 ################################################################################################################################################################
 def countUnitTypes(UnitList, q):
     unitTypes = {"ranged":0, "heavy":0, "light":0, "worker":0, "barrack":0, "base":0}
-    for each in unitList:
+    for each in UnitList:
         if isinstance(each, rangedUnit):
             unitTypes["ranged"] += 1
         elif isinstance(each, workerUnit):
@@ -204,7 +205,7 @@ class Barrack(Unit):
         if type =="ranged":
             num = countUnitTypes(unitList, "ranged")
             x1, y1 = self.getSoldierPosition() #TODO: check if it can be placed there and it is not filled with other units
-            print("LOCS for ranged", x1,y1)
+            # print("LOCS for ranged", x1,y1)
             self.actionList.append(["trainRanged", x1, y1, ownerID, hitpoints, num])
 
 ################################################################################################################################################################
@@ -307,7 +308,7 @@ def evaluate(action, u_me):
         u_enemy = action[1]
         # print(u_enemy.name)
         if u_me.canAttack(u_enemy):
-            u_enemy.hitpoints -= 2 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0;
+            u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0;
             print("ATTACK DONE")
 
     elif action[0] == "buildBarrack":
@@ -337,6 +338,7 @@ def evaluate(action, u_me):
 def isOver(playerBasedList):
     player1 = playerBasedList[0]
     player2 = playerBasedList[1]
+
     for unit in player1:
         if unit.hitpoints <= 0:
             continue
@@ -347,7 +349,7 @@ def isOver(playerBasedList):
             continue
         else:
             return False
-
+    print("GAME IS OVER")
     return True
 
 def updatePlayerBasedList(unitList):
@@ -359,9 +361,9 @@ def updatePlayerBasedList(unitList):
             playerBasedList[1].append(each)
     return playerBasedList
 
-def create_data_label(u2_pos, attackable_poses):
+def create_data_label(data, u2_pos, attackable_poses):
     
-    label = np.zeros(16)
+    label = np.zeros(17)
     data[u2_pos] = [0, 1]
     for pos in attackable_poses:
         label[pos] = 2 # attackable units
@@ -372,14 +374,19 @@ def create_data_label(u2_pos, attackable_poses):
 #                                                                                                             #
 ###############################################################################################################
 # assumption: I'm assuming all actions' durations are equal to one time step!
-
+# def start():
 b = Board()
 b.Draw()
 
 unitList = [] #TODO: later, make a config and automatically add these
 # u1 = rangedUnit(3, 2, "R1", 1, 6)
-u2 = rangedUnit(1, 2, "R2", 2, 6)
-u5 = workerUnit(3, 1, "W1", 1, 6)
+
+# u2 = rangedUnit(1, 2, "R2", 2, 10)
+# u5 = workerUnit(3, 1, "W1", 1, 10)
+
+u2 = rangedUnit(0, 1, "R2", 2, 10)
+u5 = workerUnit(2, 1, "W1", 1, 10)
+u6 = workerUnit(0, 3, "W1", 1, 6)
 # u3 = meleeUnit(0, 0, "H1", 1, 6)
 # u4 = meleeUnit(1, 3, "H2", 2, 6)
 # u6 = Barrack(2, 3, "BR1", 1, 6)
@@ -387,6 +394,7 @@ u5 = workerUnit(3, 1, "W1", 1, 6)
 # unitList.append(u1)
 unitList.append(u2)
 unitList.append(u5)
+unitList.append(u6)
 
 playerBasedList = updatePlayerBasedList(unitList)
 b.update_board(unitList)
@@ -395,6 +403,7 @@ b.Draw()
 gameOver = False
 t = 0
 dataset = []
+labels = []
 
 while(gameOver==False):
     for u in unitList:
@@ -415,28 +424,27 @@ while(gameOver==False):
         print(u)
         print(u.actionList)
         print("***\n")
-    input()
+    # input()
+
     data = np.zeros((16, 2))
-    attackable_poses = []
+    label= np.zeros(17)
+    flag = False
     for eachU in unitList:
-        pos = eachU.x*4 + eachU.y
-        data[pos] = [1, 0]
-        if eachU.ownerID == 1:
-            if u2.canAttack(eachU):
-                print("CAN ATTACK "+ eachU.name)
-                attackable_poses.append(pos)
+        if eachU == u2:
+            data[u2.pos] = [1, 0]
+            action = eachU.actionList[0]
+            if action[0] == "attack":
+                u_enemy = action[1]
+                label[u_enemy.pos] = 1
+                flag = True
+
+        else:
+            data[eachU.pos] = [0, 1]
     
-
-    data, label = create_data_label(u2.x*4 + u2.y, attackable_poses)
-    for eachU in unitList:
-        pos = eachU.x*4 + eachU.y
-        if label[pos] !=2 and eachU!=u2:
-            label[pos] = 1
-    print(data)
-    print(label)
-    dataset.append([data, label])
-    input("data set")
-
+    if flag == False:    
+        label[16] = 1 #do nothing
+    
+    #evaluate
     for eachU in unitList:
         if eachU.actionList:
             action1 = eachU.actionList.pop(0)
@@ -446,6 +454,10 @@ while(gameOver==False):
             print(action1)
             evaluate(action1, eachU)
 
+    # print(data)
+    # print(label)
+    dataset.append(data)
+    labels.append(label)
 
     playerBasedList = updatePlayerBasedList(unitList)
     b.update_board(unitList)
@@ -459,72 +471,117 @@ while(gameOver==False):
         print(u.name, ": ", u.hitpoints)
 
     input("T=%s ended!"%t)
-
     t +=1
 
 
+print(len(dataset))
+print(np.array(dataset).shape)
+print(len(labels))
+# return dataset, labels
 
 
-# Import python libraries required in this example:
+############################################# DAGGER:
+
+# dataset, labels = start()
+
+
+
+############################################# (NN)
+
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Flatten
 import numpy as np
-x = np.array([[0,0,0,0,0,0,1,0,0,0,0,0,-1,0,-1,0], [1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1], [-1,-1,0,0,0,0,0,0,0,0,0,0,0,-1,0,1], [-1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,-1]])
-y = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]) 
+from matplotlib import pyplot as plt
+import keras
 
+x = np.array(dataset)
+# x = np.array(new_dataset)
+y = np.array(labels)
+print(x.shape)
+print(y.shape)
+
+
+#classification -> the sum should be 1, and its for the the probability of attacking (the attack is done)
 model = Sequential()
-model.add(Dense(8, input_shape=(16,)))
-model.add(Activation('sigmoid'))
+model.add(Dense(1, input_shape=(16,2)))
+model.add(Activation('relu'))
+model.add(Flatten())
 model.add(Dense(32))
-model.add(Activation('sigmoid'))
-model.add(Dense(16))
+model.add(Activation('relu'))
+model.add(Dense(17))
 model.add(Activation('softmax')) 
-# Compile the model and calculate its accuracy:
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']) 
-# Print a summary of the Keras model:
 model.summary()
 
+regression = False
+#regression -> saying which of them is attackable and which of them is not. (attackable)
+if regression:
+    model = Sequential()
+    model.add(Dense(8, input_shape=(16,2)))
+    model.add(Activation('relu'))
+    model.add(Dense(32))
+    model.add(Activation('relu'))
+    model.add(Dense(1))
+    model.add(Activation('sigmoid')) 
+    model.compile(loss='mse', optimizer=keras.optimizers.Adam(lr=0.01), metrics=['accuracy']) 
+    model.summary()
 
-model.fit(x, y, epochs=10, batch_size=1)
-# evaluate the keras model
+
+history = model.fit(x, y, epochs=30, batch_size=4)
+
 _, accuracy = model.evaluate(x, y)
 print('Accuracy: %.2f' % (accuracy*100))
 
-y_pred = model.predict([[0,0,0,1,0,0,0,0,0,0,0,0,-1,0,-1,0]])
+# plt.plot(history.history['accuracy'])
+# # plt.plot(history.history['val_accuracy'])
+# plt.title('model accuracy')
+# plt.ylabel('accuracy')
+# plt.xlabel('epoch')
+# plt.legend(['train', 'val'], loc='upper left')
+# plt.show()
+# test = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],[0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]])
+test = np.zeros((1,16,2))
+
+test[0][3][0] = 1
+test[0][0][1] = 1
+test[0][12][1] = 1
+print(test)
+print(test.shape)
+y_pred = model.predict(test)
 print(y_pred)
-#Converting predictions to label
-pred = list()
-for i in range(len(y_pred)):
-    pred.append(np.argmax(y_pred[i]))
+# #Converting predictions to label
+# pred = list()
+# for i in range(len(y_pred)):
+#     pred.append(np.argmax(y_pred[i]))
 
 
-# while(gameOver==False):
-#     if t%10==0:
-#         # u1.attackClosest(unitList)
-#         # u5.build("barrack", 3, 0, u5.ownerID, 10) #TODO: check it is possible to build a barrack in that place!
-#         # u2.attackClosest(unitList)
-#         u6.train("ranged", u6.ownerID, 5)
-
-#     for eachU in unitList:
-#         if eachU.actionList:
-#             action1 = eachU.actionList.pop(0)
-#             print("FIRST ACTION of %s POPPED: "%eachU.name)
-#             print(action1)
-#             evaluate(action1, eachU)
 
 
-#     # updating the board and printing configs
-#     playerBasedList = updatePlayerBasedList(unitList)
-#     b.update_board(unitList)
-#     b.Draw()
-#     for u in unitList:
-#         print(u.name, ": ", u.hitpoints)
 
 
-#     # check if the game is over
-#     if isOver(playerBasedList):
-#         gameOver =True
+# x = np.array([[0,0,0,0,0,0,1,0,0,0,0,0,-1,0,-1,0], [1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1], [-1,-1,0,0,0,0,0,0,0,0,0,0,0,-1,0,1], [-1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,-1]])
+# y = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0], [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]]) 
+# model = Sequential()
+# model.add(Dense(8, input_shape=(16,)))
+# model.add(Activation('sigmoid'))
+# model.add(Dense(32))
+# model.add(Activation('sigmoid'))
+# model.add(Dense(16))
+# model.add(Activation('softmax')) 
+# # Compile the model and calculate its accuracy:
+# model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy']) 
+# # Print a summary of the Keras model:
+# model.summary()
 
-#     input("T=%s ended!"%t)
 
-#     t +=1
+# model.fit(x, y, epochs=10, batch_size=1)
+# # evaluate the keras model
+# _, accuracy = model.evaluate(x, y)
+# print('Accuracy: %.2f' % (accuracy*100))
+
+# y_pred = model.predict([[0,0,0,1,0,0,0,0,0,0,0,0,-1,0,-1,0]])
+# print(y_pred)
+# #Converting predictions to label
+# pred = list()
+# for i in range(len(y_pred)):
+#     pred.append(np.argmax(y_pred[i]))
