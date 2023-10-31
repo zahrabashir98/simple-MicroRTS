@@ -185,33 +185,31 @@ def countUnitTypes(UnitList, q):
                 
 
 class Barrack(Unit):
+    def checkIfEmpty(self, pos, board):
+        print("BOARD")
+        print(board)
+        if board[pos] != "  ":
+            return False
+        else:
+            return True
+    
+    def getSoldierPosition(self, board): #THIS IS WRONG!
+        x1 = 0
+        y1 = 0
+        while(self.checkIfEmpty((4*x1 + y1), board)==False):
+            x1 = np.random.randint(4)  
+            y1 = np.random.randint(4) 
 
-    def getSoldierPosition(self): #THIS IS WRONG!
-        x1 = -1
-        x2 = -1
-        y1 = -1
-        y2 = -1
+        return x1, y1
 
-        if 0<=(self.x-1) <=3:
-            x1 = self.x-1
-            return x1, self.y
-        if 0<=(self.x+1) <=3:
-            x2 = self.x+1
-            return x2, self.y
 
-        if 0<=(self.y-1) <=3:
-            y1 = self.y-1
-            return self.x, y1
-
-        if 0<=(self.y+1) <=3:
-            y2 = self.y+1
-            return self.x, y2
-
-    def train(self, type, ownerID, hitpoints):
+    def train(self, type, ownerID, hitpoints, unitList, board):
         if type =="ranged":
             num = countUnitTypes(unitList, "ranged")
-            x1, y1 = self.getSoldierPosition() #TODO: check if it can be placed there and it is not filled with other units
-            # print("LOCS for ranged", x1,y1)
+            # input("CHOOSING the location for training ranged")
+            x1, y1 = self.getSoldierPosition(board) #TODO: check if it can be placed there and it is not filled with other units
+            print("LOCS for ranged", x1,y1)
+            # input()
             self.actionList.append(["trainRanged", x1, y1, ownerID, hitpoints, num])
 
 ################################################################################################################################################################
@@ -315,43 +313,57 @@ class rangedUnit(Unit):
 
 
 
-def evaluate(action, u_me):
+def evaluate(action, u_me, unitList, board):
 
     if action[0] == "attack":
         u_enemy = action[1]
         # print(u_enemy.name)
         if u_me.canAttack(u_enemy):
-            u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0;
+            u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0; #DONE
             print("ATTACK to %s DONE"%u_enemy.name)
 
     elif action[0] == "buildBarrack":
-        #TODO: double check if it is empty to make
+        #TODO: double check if it is empty to make; #DONE
         u = Barrack(action[1], action[2], "B%s"%action[3], action[3], action[4])
         unitList.append(u)
 
     elif action[0] == "trainRanged":
-        #TODO: double check if it is empty to make
+        #TODO: double check if it is empty to make; #DONE
         u = rangedUnit(action[1], action[2], "R%s"%(action[5]+2), action[3], action[4])
-        unitList.append(u)
+        unitList.append(u)  
     
     else:
         action = action[0] # direction, None, None
         # print(action)
         if action == "right":
-            u_me.y += 1
+            if u_me.y+1<= 3 and board[(u_me.x*4) + (u_me.y+1)] == "  ":
+                u_me.y += 1
+            else: 
+                print("COULN'T MOVE")
+    
         elif action == "left":
-            u_me.y -= 1
+            if u_me.y-1>=0 and board[(u_me.x*4) + (u_me.y-1)] == "  ":
+                u_me.y -= 1
+            else: 
+                print("COULN'T MOVE")
         elif action == "up":
-            u_me.x -= 1
+            if u_me.x-1>=0 and board[((u_me.x -1)*4) + (u_me.y)] == "  ":
+                u_me.x -= 1
+            else: 
+                print("COULN'T MOVE")
         elif action == "down":
-            u_me.x += 1
+            if u_me.x+1<=3 and board[((u_me.x +1)*4) + (u_me.y)] == "  ":
+                u_me.x += 1
+            else: 
+                print("COULN'T MOVE")
     
 
 
-def isOver(playerBasedList):
+def isOver(playerBasedList, unitList):
     player1 = playerBasedList[0]
     player2 = playerBasedList[1]
-
+    if len(unitList) <=1:
+        return True
     for unit in player1:
         if unit.hitpoints <= 0:
             continue
@@ -387,143 +399,171 @@ def create_data_label(data, u2_pos, attackable_poses):
 #                                                                                                             #
 ###############################################################################################################
 # assumption: I'm assuming all actions' durations are equal to one time step!
-# def start():
-b = Board()
-b.Draw()
+def start(x1, y1, x2, y2):
+    b = Board()
+    b.Draw()
 
-unitList = [] #TODO: later, make a config and automatically add these
-# u1 = rangedUnit(3, 2, "R1", 1, 6)
+    unitList = [] #TODO: later, make a config and automatically add these
 
-# u2 = rangedUnit(1, 2, "R2", 2, 10)
-# u5 = workerUnit(3, 1, "W1", 1, 10)
+    u2 = rangedUnit(x1, y1, "R2", 2, 100)
+    u5 = workerUnit(x2, y2, "W1", 1, 10)
 
-u2 = rangedUnit(0, 1, "R2", 2, 100)
-u5 = workerUnit(3, 3, "W1", 1, 10)
+    # u2 = rangedUnit(0, 1, "R2", 2, 10)
+    # u5 = workerUnit(3, 3, "W1", 1, 10)
+    # u5 = workerUnit(2, 1, "W1", 1, 100)
+    # u6 = workerUnit(0, 3, "W1", 1, 6)
+    # u3 = meleeUnit(0, 0, "H1", 1, 6)
+    # u4 = meleeUnit(1, 3, "H2", 2, 6)
+    # u6 = Barrack(2, 3, "BR1", 1, 6)
 
-# u5 = workerUnit(2, 1, "W1", 1, 100)
-# u6 = workerUnit(0, 3, "W1", 1, 6)
-# u3 = meleeUnit(0, 0, "H1", 1, 6)
-# u4 = meleeUnit(1, 3, "H2", 2, 6)
-# u6 = Barrack(2, 3, "BR1", 1, 6)
-
-# unitList.append(u1)
-unitList.append(u2)
-unitList.append(u5)
-# unitList.append(u6)
-
-playerBasedList = updatePlayerBasedList(unitList)
-b.update_board(unitList)
-b.Draw()
-
-gameOver = False
-t = 0
-dataset = []
-labels = []
-
-while(gameOver==False):
-    for u in unitList:
-        if isinstance(u, workerUnit) and countUnitTypes(unitList, "barrack")<1:
-            if u.active == False: # ready to assign actions
-                u.build("barrack", 3, 0, u5.ownerID, 10)
-                u.active = True
-        if t%2 ==0 and isinstance(u, workerUnit):
-            if u.active == False:
-                u.attackClosest(unitList)
-                u.active = True
-        if t%2 ==1 and isinstance(u, workerUnit):
-            if u.active == False:
-                u.actionList.append(np.random.choice(["left", "right", "up", "down"]))
-                u.active = True
-        if isinstance(u, rangedUnit) or isinstance(u, meleeUnit): 
-            if u.active == False:
-                u.attackClosest(unitList)
-                u.active = True
-        if isinstance(u, Barrack):
-            if u.active == False and countUnitTypes(unitList, "ranged")<=3:
-                u.train("ranged", u.ownerID, 5)
-                u.active = True
-
-    # for u in unitList:
-    #     print(u)
-    #     print(u.actionList)
-    #     print("***\n")
-    # input()
-
-    data = np.zeros((4,4, 2))
-    label= np.zeros(21)
-    flag = False
-
-    for eachU in unitList:
-        if eachU == u2:
-            data[u2.x][u2.y] = [1, 0]
-            action = eachU.actionList[0]
-            if action[0] == "attack":
-                u_enemy = action[1]
-                label[(u_enemy.x*4) + u_enemy.y] = 1
-                flag = True
-            elif action[0] == "left":
-                label[16] = 1
-                flag = True
-            elif action[0] == "right":
-                label[17] = 1
-                flag = True
-            elif action[0] == "up":
-                label[18] = 1
-                flag = True
-            elif action[0] == "down":
-                label[19] = 1
-                flag = True
-        else:
-            data[eachU.x][eachU.y] = [0, 1]
-    
-    if flag == False:    
-        label[20] = 1 #do nothing
-
-    # print(data)
-    # print(label)
-    print("\nLET'S EVALUATE\n\n")
-    #evaluate
-    for eachU in unitList:
-        if eachU.actionList:
-            action1 = eachU.actionList.pop(0)
-            print("FIRST ACTION of %s POPPED: "%eachU.name)
-            if len(eachU.actionList) == 0:
-                eachU.active = False
-            print(action1)
-            evaluate(action1, eachU)
-
-
-    dataset.append(data)
-    labels.append(label)
+    # unitList.append(u1)
+    unitList.append(u2)
+    unitList.append(u5)
+    # unitList.append(u6)
 
     playerBasedList = updatePlayerBasedList(unitList)
     b.update_board(unitList)
     b.Draw()
 
-    # check if the game is over
-    if isOver(playerBasedList):
-        gameOver =True
+    gameOver = False
+    t = 0
+    dataset = []
+    labels = []
 
-    for u in unitList:
-        print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
+    while(gameOver==False):
+        for u in unitList:
+            if u ==u2: # the player we are intertsed to learn its behaviour! (Ranged unit for now, and the behaviour is "attack closeset" for now!)
+                if u.active == False:
+                    u.attackClosest(unitList)
+                    u.active = True
+            else:
+                if isinstance(u, workerUnit) and countUnitTypes(unitList, "barrack")<1:
+                    if u.active == False: # ready to assign actions
+                        x1 = np.random.randint(4) 
+                        y1 = np.random.randint(4)
+                        while(b.board[4*x1 + y1]!="  "):
+                            x1 = np.random.randint(4)  
+                            y1 = np.random.randint(4)
+                        u.build("barrack", x1, y1, u5.ownerID, 10)
+                        u.active = True
 
-    # print(t)
-    # input("T=%s endxed!"%t)
-    t +=1
+                if t%5 == 0 and isinstance(u, rangedUnit) or isinstance(u, meleeUnit) or isinstance(u, workerUnit): 
+                    if u.active == False:
+                        u.attackClosest(unitList)
+                        u.active = True
+                if t%5 != 0 and isinstance(u, rangedUnit) or isinstance(u, meleeUnit) or isinstance(u, workerUnit): 
+                    if u.active == False:
+                        u.actionList.append([np.random.choice(["left", "right", "up", "down"]), None])
+                        u.active = True
+                if isinstance(u, Barrack):
+                    if u.active == False and countUnitTypes(unitList, "ranged")<=3:
+                        u.train("ranged", u.ownerID, 5, unitList, b.board)
+                        u.active = True
+
+        # for u in unitList:
+        #     print(u)
+        #     print(u.actionList)
+        #     print("***\n")
+        # input()
+
+        data = np.zeros((4,4, 2))
+        label= np.zeros(21)
+        flag = False
+
+        for eachU in unitList:
+            if eachU == u2:
+                data[u2.x][u2.y] = [1, 0]
+                action = eachU.actionList[0]
+                if action[0] == "attack":
+                    u_enemy = action[1]
+                    label[(u_enemy.x*4) + u_enemy.y] = 1
+                    flag = True
+                elif action[0] == "left":
+                    label[16] = 1
+                    flag = True
+                elif action[0] == "right":
+                    label[17] = 1
+                    flag = True
+                elif action[0] == "up":
+                    label[18] = 1
+                    flag = True
+                elif action[0] == "down":
+                    label[19] = 1
+                    flag = True
+            else:
+                data[eachU.x][eachU.y] = [0, 1]
+        
+        if flag == False:    
+            label[20] = 1 #do nothing
+
+        # print(data)
+        # print(label)
+        print("\nLET'S EVALUATE\n\n")
+        #evaluate
+        for eachU in unitList:
+            if eachU.actionList:
+                action1 = eachU.actionList.pop(0)
+                print("FIRST ACTION of %s POPPED: "%eachU.name)
+                if len(eachU.actionList) == 0:
+                    eachU.active = False
+                print(action1)
+                evaluate(action1, eachU, unitList, b.board)
 
 
-print(len(dataset))
-print(np.array(dataset).shape)
-print(len(labels))
-# return dataset, labels
+        dataset.append(data)
+        labels.append(label)
+
+        playerBasedList = updatePlayerBasedList(unitList)
+        b.update_board(unitList)
+        b.Draw()
+
+        # check if the game is over
+        if isOver(playerBasedList, unitList):
+            gameOver =True
+
+        for u in unitList:
+            print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
+
+        # print(t)
+        # input("T=%s ended!"%t)
+        t +=1
+
+
+    print(len(dataset))
+    print(np.array(dataset).shape)
+    print(len(labels))
+    return dataset, labels
 
 
 ############################################# DAGGER:
+x1 = 0
+x2 = 1
+y1 = 1
+y2 = 2
+trainingData = []
+trainingLabels = []
+testData = []
+testsLabels = []
+num = 10
+for i in range(num):
+    while(x1!=x2 and y1!=y2):
+        x1 = np.random.randint(4)
+        y1 = np.random.randint(4)
+        x2 = np.random.randint(4)
+        y2 = np.random.randint(4)   
 
-# dataset, labels = start()
+    print(x1, y1, x2, y2)
+
+    dataset, labels = start(x1, y1, x2, y2)
+    if i<num/2:
+        trainingData+= dataset
+        trainingLabels += labels
+    if i>=num/2:
+        testData += dataset
+        testsLabels += labels
 
 
-
+#TODO: action durations
 ############################################# (NN)
 
 from keras.models import Sequential
@@ -532,20 +572,24 @@ import numpy as np
 from matplotlib import pyplot as plt
 import keras
 
-x = np.array(dataset)
-# x = np.array(new_dataset)
-y = np.array(labels)
+x = np.array(trainingData)
+y = np.array(trainingLabels)
+valData = np.array(testData)
+valLabels = np.array(testsLabels)
 print(x.shape)
 print(y.shape)
+print(valData.shape)
+print(valLabels.shape)
 
-
-num_filters = 8
+num_filters = 16
 filter_size = 3
-pool_size = 2
+pool_size = 1
 
+# add more layers?
 model = Sequential([
   Conv2D(num_filters, filter_size, input_shape=(4, 4, 2)),
   MaxPooling2D(pool_size=pool_size),
+#   Conv2D(16, 2),
   Flatten(),
   Dense(21, activation='softmax'),
 ])
@@ -556,12 +600,47 @@ model.compile(
   metrics=['accuracy'],
 )
 
-model.fit(
+history = model.fit(
   x,
   y,
-  epochs=30,
-)
+  epochs=100,
+  validation_data = (valData, valLabels),
 
+)
+print(history.history['val_accuracy'])
+input()
+
+import matplotlib.pyplot as plt
+
+# summarize history for accuracy
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('model accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+# summarize history for loss
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['Train', 'Validation'], loc='upper left')
+plt.show()
+
+# test = np.zeros((1, 4,4,2))
+# test[0][0][0][0] = 1
+# test[0][2][2][1] = 1
+# test[0][0][3][1] = 1
+# print(test)
+
+
+# label = model.predict(x)
+# print(label)
+# result = np.random.choice(np.arange(0, 21), p=label[0])
+# print(result)
+# 2 3 3 3
 
 # test = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],[0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]])
 # test = np.zeros((1,16,2))
