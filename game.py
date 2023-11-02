@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, BatchNormalization
 
 class Board:
 
@@ -542,9 +542,11 @@ y1 = 1
 y2 = 2
 trainingData = []
 trainingLabels = []
+validData = []
+validLabels = []
 testData = []
-testsLabels = []
-num = 10
+testLabels = []
+num = 30
 for i in range(num):
     while(x1!=x2 and y1!=y2):
         x1 = np.random.randint(4)
@@ -553,33 +555,39 @@ for i in range(num):
         y2 = np.random.randint(4)   
 
     print(x1, y1, x2, y2)
-
     dataset, labels = start(x1, y1, x2, y2)
-    if i<num/2:
+    if i<=num/3:
         trainingData+= dataset
         trainingLabels += labels
-    if i>=num/2:
+    elif i>num/3 and i<=2*num/3:
+        validData += dataset
+        validLabels += labels
+    elif i>2*num/3:
         testData += dataset
-        testsLabels += labels
-
+        testLabels += labels
 
 #TODO: action durations
 ############################################# (NN)
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten
+from keras.layers import Dense, Activation, Flatten, BatchNormalization, Dropout
 import numpy as np
 from matplotlib import pyplot as plt
 import keras
 
 x = np.array(trainingData)
 y = np.array(trainingLabels)
-valData = np.array(testData)
-valLabels = np.array(testsLabels)
+valData = np.array(validData)
+valLabels = np.array(validLabels)
+testData = np.array(testData)
+testLabels = np.array(testLabels)
 print(x.shape)
 print(y.shape)
 print(valData.shape)
 print(valLabels.shape)
+print(testData.shape)
+print(testLabels.shape)
+input()
 
 num_filters = 16
 filter_size = 3
@@ -588,8 +596,10 @@ pool_size = 1
 # add more layers?
 model = Sequential([
   Conv2D(num_filters, filter_size, input_shape=(4, 4, 2)),
+#   BatchNormalization(),
+#   Dropout(0.25),
   MaxPooling2D(pool_size=pool_size),
-#   Conv2D(16, 2),
+  Conv2D(16, 2),
   Flatten(),
   Dense(21, activation='softmax'),
 ])
@@ -607,7 +617,7 @@ history = model.fit(
   validation_data = (valData, valLabels),
 
 )
-print(history.history['val_accuracy'])
+# print(history.history['val_accuracy'])
 input()
 
 import matplotlib.pyplot as plt
@@ -629,6 +639,10 @@ plt.xlabel('epoch')
 plt.legend(['Train', 'Validation'], loc='upper left')
 plt.show()
 
+
+test_loss, test_acc = model.evaluate(testData,  testLabels, verbose=2)
+print(test_loss)
+print(test_acc)
 # test = np.zeros((1, 4,4,2))
 # test[0][0][0][0] = 1
 # test[0][2][2][1] = 1
