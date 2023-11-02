@@ -210,7 +210,9 @@ class Barrack(Unit):
             x1, y1 = self.getSoldierPosition(board) #TODO: check if it can be placed there and it is not filled with other units
             print("LOCS for ranged", x1,y1)
             # input()
-            self.actionList.append(["trainRanged", x1, y1, ownerID, hitpoints, num])
+            self.actionList.append(["trainRanged1", x1, y1, ownerID, hitpoints, num])
+            self.actionList.append(["trainRanged2", x1, y1, ownerID, hitpoints, num])
+            self.actionList.append(["trainRanged3", x1, y1, ownerID, hitpoints, num])
 
 ################################################################################################################################################################
 ################################################################################################################################################################
@@ -222,7 +224,9 @@ class workerUnit(meleeUnit):
 
     def build(self, type, x, y, ownerID, hitpoints):
         if type == "barrack": #TODO: add exceptions for not being able to add a unit at a specific position becuase it is full!
-            self.actionList.append(["buildBarrack", x, y, ownerID, hitpoints])
+            self.actionList.append(["buildBarrack1", x, y, ownerID, hitpoints])
+            self.actionList.append(["buildBarrack2", x, y, ownerID, hitpoints])
+            self.actionList.append(["buildBarrack3", x, y, ownerID, hitpoints])
         elif type == "base":
             pass
 
@@ -283,7 +287,8 @@ class rangedUnit(Unit):
 
         if self.canAttack(targetUnit):
             print("YES")
-            self.actionList.append(["attack", targetUnit])
+            self.actionList.append(["attack1", targetUnit]) # the last to be droppped and applied
+            self.actionList.append(["attack2", targetUnit])
 
         else:
             print("NO")
@@ -315,23 +320,30 @@ class rangedUnit(Unit):
 
 def evaluate(action, u_me, unitList, board):
 
-    if action[0] == "attack":
+    if action[0] == "attack2":
         u_enemy = action[1]
         # print(u_enemy.name)
         if u_me.canAttack(u_enemy):
             u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0; #DONE
             print("ATTACK to %s DONE"%u_enemy.name)
+        
+    elif action[0] == "attack1":
+        print("DO NOTHING\n")
 
-    elif action[0] == "buildBarrack":
+    elif action[0] == "buildBarrack3":
         #TODO: double check if it is empty to make; #DONE
         u = Barrack(action[1], action[2], "B%s"%action[3], action[3], action[4])
         unitList.append(u)
 
-    elif action[0] == "trainRanged":
+    elif action[0] == "buildBarrack1" or action[0] == "buildBarrack2":
+        print("DO NOTHING\n")
+
+    elif action[0] == "trainRanged3":
         #TODO: double check if it is empty to make; #DONE
         u = rangedUnit(action[1], action[2], "R%s"%(action[5]+2), action[3], action[4])
         unitList.append(u)  
-    
+    elif action[0] == "trainRanged1" or action[0] == "trainRanged2":
+        print("DO NOTHING\n")
     else:
         action = action[0] # direction, None, None
         # print(action)
@@ -407,10 +419,6 @@ def start(x1, y1, x2, y2):
 
     u2 = rangedUnit(x1, y1, "R2", 2, 100)
     u5 = workerUnit(x2, y2, "W1", 1, 10)
-
-    # u2 = rangedUnit(0, 1, "R2", 2, 10)
-    # u5 = workerUnit(3, 3, "W1", 1, 10)
-    # u5 = workerUnit(2, 1, "W1", 1, 100)
     # u6 = workerUnit(0, 3, "W1", 1, 6)
     # u3 = meleeUnit(0, 0, "H1", 1, 6)
     # u4 = meleeUnit(1, 3, "H2", 2, 6)
@@ -474,7 +482,7 @@ def start(x1, y1, x2, y2):
             if eachU == u2:
                 data[u2.x][u2.y] = [1, 0]
                 action = eachU.actionList[0]
-                if action[0] == "attack":
+                if action[0] == "attack1" or action[0] == "attack2":
                     u_enemy = action[1]
                     label[(u_enemy.x*4) + u_enemy.y] = 1
                     flag = True
@@ -590,14 +598,14 @@ print(testLabels.shape)
 input()
 
 num_filters = 16
-filter_size = 3
+filter_size = 2
 pool_size = 1
 
 # add more layers?
 model = Sequential([
   Conv2D(num_filters, filter_size, input_shape=(4, 4, 2)),
-#   BatchNormalization(),
-#   Dropout(0.25),
+  BatchNormalization(),
+  Dropout(0.25),
   MaxPooling2D(pool_size=pool_size),
   Conv2D(16, 2),
   Flatten(),
