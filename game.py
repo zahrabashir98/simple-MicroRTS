@@ -667,3 +667,42 @@ print(test_acc)
 # y_pred = model.predict(test)
 # print(y_pred)
 
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import StratifiedKFold as SKF
+from sklearn import metrics
+
+testData = np.array(validData)
+x = x.reshape(x.shape[0], x.shape[1]*x.shape[2]*x.shape[3])
+testData = testData.reshape(testData.shape[0], testData.shape[1]*testData.shape[2]*testData.shape[3])
+wholeData = np.concatenate((x, testData))
+print(wholeData.shape)
+wholeLabels = []
+for i in range(len(x)):
+    wholeLabels.append(1)
+for i in range(len(testData)):
+    wholeLabels.append(0)
+
+wholeLabels = np.array(wholeLabels)
+print(wholeLabels.shape)
+
+m = RandomForestClassifier(n_jobs=-1, max_depth=5, min_samples_leaf = 5)
+predictions = np.zeros(wholeLabels.shape) #creating an empty prediction array
+
+x = wholeData
+y = wholeLabels
+
+skf = SKF(n_splits=20, shuffle=True, random_state=100)
+for fold, (train_idx, test_idx) in enumerate(skf.split(x, y)):
+    X_train, X_test = x[train_idx], x[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+    
+    m.fit(X_train, y_train)
+    probs = m.predict_proba(X_test)[:, 1] #calculating the probability
+    predictions[test_idx] = probs
+
+
+print("ROC-AUC for train and test distributions:", metrics.auc(y, predictions)) 
+# if it is not very high(>0.8), it is ok, and means that we don't have covariate shift in our dataset
+# based on: https://towardsdatascience.com/how-dis-similar-are-my-train-and-test-data-56af3923de9b
+
