@@ -18,9 +18,12 @@ class MCTS:
         self.children = dict()  # children of each node
         self.exploration_weight = exploration_weight
 
+
     def choose(self, node):
         "Choose the best successor of node. (Choose a move in the game)"
-        if node.is_terminal():
+        # print("THIS IS THE NODE THAT WANTS TO CHOOSE SOMETHING")
+        # node.Draw()
+        if node.isOver():
             raise RuntimeError(f"choose called on terminal node {node}")
 
         if node not in self.children:
@@ -30,18 +33,36 @@ class MCTS:
             if self.N[n] == 0:
                 return float("-inf")  # avoid unseen moves
             return self.Q[n] / self.N[n]  # average reward
+        
+        
+        # for child in self.children[node]:
+        #     print(self.Q[child]/self.N[child])
+        #     child.Draw()
+        # input("Q HA")
+        best_board = max(self.children[node], key=score)
+        return best_board.p2_actions
 
-        return max(self.children[node], key=score)
 
     def do_rollout(self, node):
         "Make the tree one layer better. (Train for one iteration.)"
-        print(type(node))
-        input("NODE IN ROLLOUT BASHE")
+        # print(type(node))
+        # input("NODE IN ROLLOUT BASHE")
         path = self._select(node)
+        # print(path)
         leaf = path[-1]
+        # print(leaf.unitList[0].x)
+        # print(leaf.unitList[0].y)
+        # print(leaf.unitList[1].x)
+        # print(leaf.unitList[1].y)
+        # input("This is the selected path")
         self._expand(leaf)
         reward = self._simulate(leaf)
+        # print("REWARD", reward)
+        # input()
+
         self._backpropagate(path, reward)
+        # print(self.Q)
+        # print(self.N)
 
     def _select(self, node):
         "Find an unexplored descendent of `node`"
@@ -64,44 +85,55 @@ class MCTS:
             return  # already expanded
         self.children[node] = node.find_children()
         # print(node.find_children())
-        input("THIS IS FIND")
+        # input("children found")
 
     def _simulate(self, node):
         "Returns the reward for a random simulation (to completion) of `node`"
         invert_reward = True
         while True:
-            if node.is_over == True:
-                pass
+            if node.isOver() == True:
+                # print("ISOVERRR!!!")
+                # input()
                 #reward?
-                if node.winner ==1:
-                    return 0
-                else:
+                if node.winner == 0:
+                    AssertionError
+                    print("BAD STATUS")
+                elif node.winner ==2:
                     return 1
+                elif node.winner == 1:
+                    return 0
+                elif node.winner == 0.5:
+                    return 0.5
+                else:
+                    AssertionError
+                    return None
                 # return 1 - reward if invert_reward else reward #TODO: how to assign reward in Realtime games?
+            # print(node.board)
+            # input("THIS IS THE BOARD")
             node = node.find_random_child()
             invert_reward = not invert_reward
 
     def _backpropagate(self, path, reward):
         "Send the reward back up to the ancestors of the leaf"
         for node in reversed(path):
+            # print("IN BP")
+            # print(node)
+            # input()
             self.N[node] += 1
             self.Q[node] += reward
-            reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
+            # reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
 
     def _uct_select(self, node):
         "Select a child of node, balancing exploration & exploitation"
 
         # All children of node should already be expanded:
         assert all(n in self.children for n in self.children[node])
-
         log_N_vertex = math.log(self.N[node])
-
         def uct(n):
             "Upper confidence bound for trees"
             return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
                 log_N_vertex / self.N[n]
             )
-
         return max(self.children[node], key=uct)
 
 

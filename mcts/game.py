@@ -2,6 +2,8 @@ import math
 import numpy as np
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, BatchNormalization
 from random import choice
+import itertools
+import copy
 
 class Board:
 
@@ -16,7 +18,9 @@ class Board:
         self.unitList = []
         self.playerBasedList = [[],[]]
         self.is_over = False
-        self.winner = 0 #no one has won yet, 1: player 1, 2: player 2, None: tie
+        self.winner = 0 #no one has won yet, 1: player 1, 2: player 2, 0.5: tie
+        self.p1_actions = []
+        self.p2_actions = []
 
 
     def Draw(self):
@@ -33,18 +37,19 @@ class Board:
 
     def update_board(self):
         self.board = ["  "]*16
-        tmpBoard = {key: [] for key in range(16)}
-        # print(tmpBoard)
-
+        remove_list = []
         for unit in self.unitList:
-            # print(unit.name)
-            if unit.hitpoints >0:
-                # tmpBoard[unit.x*4 + unit.y].append(unit.name)
+            if unit.hitpoints >=0:
                 self.board[(unit.x*4) + unit.y] = unit.name 
-                # print("TOO IF")
-            elif unit.hitpoints <=0:
-                # print("TOO ELSE")
-                self.unitList.remove(unit)
+            elif unit.hitpoints <0:
+                remove_list.append(unit)
+        
+        for _ in range(len(remove_list)):
+            for unit in self.unitList:
+                if unit in remove_list:
+                    # print("SAME")
+                    self.unitList.remove(unit)
+                    break
     
     def updatePlayerBasedList(self):
         self.playerBasedList = [[],[]]
@@ -58,16 +63,25 @@ class Board:
         #TODO: add tie
         player1 = self.playerBasedList[0]
         player2 = self.playerBasedList[1]
-        if len(player1) == 0:
-            self.winner = 2
-        if len(player1) ==1 and player1[0].hitpoints<=0:
-            self.winner = 2
 
-        if len(player2) == 0:
+        
+        num_p1 = 0
+        num_p2 = 0
+        for item in player1:
+            if item.hitpoints <=0:
+                num_p1 += 1
+    
+        for item in player2:
+            if item.hitpoints <=0:
+                num_p2 += 1
+        if num_p1 == len(player1) and num_p2 == len(player2):
+            self.winner = 0.5
+        elif num_p1 == len(player1):
             self.winner = 1
-        if len(player2) ==1 and player2[0].hitpoints<=0:
-            self.winner = 1
-
+        elif num_p2 == len(player2):
+            self.winner = 2
+        # print(self.winner)
+        # input("IS OVER FUNC")
         if len(self.unitList) <=1:
             return True
         for unit in player1:
@@ -75,13 +89,14 @@ class Board:
                 continue
             else:
                 break
+            
         for unit in player2:
             if unit.hitpoints <= 0:
                 continue
             else:
                 return False
         
-        print("GAME IS OVER")
+        # print("GAME IS OVER")
         return True
     
     
@@ -91,25 +106,31 @@ class Board:
             if isinstance(each, rangedUnit): #TODO: support other types later
                 allActions = each.allPossibleAttacks(self.unitList)
                 allNextStepActions.append(set(allActions))
-        print(allNextStepActions)
-        import itertools  
-        a = allNextStepActions[0]
-        b = allNextStepActions[1]
-        c = list(itertools.product(a, b))
+        # print(allNextStepActions)
+          
+        c = []
+        for element in itertools.product(*allNextStepActions):
+            c.append(element)
         all = []
         for action in c:
             all.append(self.make_move(action))
         return all
 
     def find_random_child(self):
-        if self.is_over==True:
+        if self.is_over==True or self.isOver():
+            print("IS OVER RANDOM CHILD")
             return None  # If the game is finished then no moves can be made
-        input("RANDOM CHILD\n")
+        # input("RANDOM CHILD\n")
         children = self.find_children()
         # empty_spots = [i for i, value in enumerate(board.tup) if value is None]
         c = choice(children)
-        print(c.board)
-        input()
+        # print(c.board)
+        # print("THIS IS THE RANDOM CHILD")
+        # c.Draw()
+        # if c.unitList:
+        #     print(c.unitList[0].hitpoints) #TODO: check if c has unit list
+        #     print(c.unitList[1].hitpoints)
+        # input("CHOSEN CHILD")
         return c
 
     def returnUnitbyName(self, unitList, name): #TODO: make sure we don't have duplicate names
@@ -118,35 +139,40 @@ class Board:
                 return u
         
     def make_move(self, action): # TODO: remove duplicate states? (check every attribute)
-        import copy
-        print("*********************START OF CHILDREN\n")
-        # tmp = Board() # or maybe a deep copy? / playerlist / update kon
-
+        
+        # print("*********************START OF CHILDREN\n")
         tmp = copy.deepcopy(self)
-        # tmp.update_board()
-        print(action)
-        print("PLAYER 2")
-        print(tmp.unitList[0].x)
-        print(tmp.unitList[0].y)
-        print(tmp.unitList[0].hitpoints)
-        print("PLAYER 1")
-        print(tmp.unitList[1].x)
-        print(tmp.unitList[1].y)
-        print(tmp.unitList[1].hitpoints)
-        tmp.Draw()
+        tmp.p1_actions = []
+        tmp.p2_actions = []
+        # print(action)
+        # print("PLAYER 2")
+        # print(tmp.unitList[0].x)
+        # print(tmp.unitList[0].y)
+        # print(tmp.unitList[0].hitpoints)
+        # print("PLAYER 1")
+        # print(tmp.unitList[1].x)
+        # print(tmp.unitList[1].y)
+        # print(tmp.unitList[1].hitpoints)
+        # tmp.Draw()
         for eachU in tmp.unitList:
             if eachU.ownerID == 2:
                 if action[0] == "right" and eachU.y!=3:
                     eachU.y += 1
+                    tmp.p2_actions.append([action[0], None])
                 elif action[0] == "left" and eachU.y!=0:
                     eachU.y -= 1
+                    tmp.p2_actions.append([action[0], None])
                 elif action[0] == "up" and eachU.x!=0:
                     eachU.x -= 1
+                    tmp.p2_actions.append([action[0], None])
                 elif action[0] == "down" and eachU.x!=3:
                     eachU.x += 1
+                    tmp.p2_actions.append([action[0], None])
+
                 elif action[0][:6] == "attack":
                     unitName = action[0][7:]
                     targetUnit = self.returnUnitbyName(tmp.unitList, unitName)
+                    tmp.p2_actions.append([action[0][:6], targetUnit.name])
                     if eachU.canAttack(targetUnit):
                         targetUnit.hitpoints -= 1
         
@@ -154,31 +180,46 @@ class Board:
             elif eachU.ownerID == 1:
                 if action[1] == "right" and eachU.y!=3:
                     eachU.y += 1
+                    tmp.p1_actions.append([action[1], None])
                 elif action[1] == "left" and eachU.y!=0:
                     eachU.y -= 1
+                    tmp.p1_actions.append([action[1], None])
                 elif action[1] == "up" and eachU.x!=0:
                     eachU.x -= 1
+                    tmp.p1_actions.append([action[1], None])
                 elif action[1] == "down" and eachU.x!=3:
                     eachU.x += 1
+                    tmp.p1_actions.append([action[1], None])
                 elif action[1][:6] == "attack":
                     unitName = action[1][7:]
                     targetUnit = self.returnUnitbyName(tmp.unitList, unitName)
+                    tmp.p1_actions.append([action[1][:6], targetUnit.name])
                     if eachU.canAttack(targetUnit):
                         targetUnit.hitpoints -= 1
-            
+                
+        
         tmp.update_board()
         tmp.updatePlayerBasedList()
-        tmp.Draw()
-        print("PLAYER 2")
-        print(tmp.unitList[0].x)
-        print(tmp.unitList[0].y)
-        print(tmp.unitList[0].hitpoints)
-        print("PLAYER 1")
-        print(tmp.unitList[1].x)
-        print(tmp.unitList[1].y)
-        print(tmp.unitList[1].hitpoints)
-        print("**********************AFTER MAKING all MOVES")
-        input()
+        # tmp.Draw()
+        if tmp.unitList:
+            pass
+            # print(tmp.unitList)
+            # print("PLAYER 2")
+            # print(tmp.unitList[0].x)
+            # print(tmp.unitList[0].y)
+            # print(tmp.unitList[0].hitpoints)
+            # print("PLAYER 1")
+            # print(tmp.unitList[1].x)
+            # print(tmp.unitList[1].y)
+            # print(tmp.unitList[1].hitpoints)
+            # print("**********************AFTER MAKING all MOVES")
+        else:
+            tmp.is_over = True
+            # print("game is over")
+        if tmp.isOver():
+            tmp.is_over = True
+
+
         return tmp
 
 
@@ -421,12 +462,12 @@ class rangedUnit(Unit):
 
 
             if self.canAttack(targetUnit):
-                print("YES")
+                # print("YES")
                 self.actionList.append(["attack", targetUnit]) # the last to be droppped and applied
                 # self.actionList.append(["attack2", targetUnit])
 
             else:
-                print("NO")
+                # print("NO")
                 x1, y1 = self.possibleAttackPos(targetUnit) #TODO: find the shortest later / debug the passing over issue!
                 diffX = x1 - self.x 
                 diffY = y1 - self.y
@@ -482,14 +523,14 @@ class rangedUnit(Unit):
 
             allActions = []
             if self.canAttack(targetUnit):
-                print("YES")
+                # print("YES")
                 allActions.append("attack_%s"%targetUnit.name)
                 # self.actionList.append(["attack", targetUnit]) 
 
             else:
-                print("NO")
+                # print("NO")
                 x1, y1, x2, y2 = self.ALLpossibleAttackPos(targetUnit)
-                print(x1, y1, x2, y2)
+                # print(x1, y1, x2, y2)
                 diffX1 = x1 - self.x 
                 diffY1 = y1 - self.y
                 diffX2 = x2 - self.x 
@@ -529,7 +570,10 @@ class rangedUnit(Unit):
 def evaluate(action, u_me, b, board):
 
     if action[0] == "attack":
-        u_enemy = action[1]
+        if isinstance(action[1], Unit):
+            u_enemy = action[1]
+        else:
+            u_enemy = b.returnUnitbyName(b.unitList, action[1])
         # print(u_enemy.name)
         if u_me.canAttack(u_enemy):
             u_enemy.hitpoints -= 1 #TODO: remove the unit from the screen or don't let the hitpoint be less than 0; #DONE
@@ -586,8 +630,8 @@ def start(x1, y1, x2, y2, flag):
     b = Board()
     b.Draw()
 
-    u2 = rangedUnit(x1, y1, "R2", 2, 20)
-    u5 = rangedUnit(x2, y2, "R1", 1, 20)
+    u2 = rangedUnit(x1, y1, "R2", 2, 5)
+    u5 = rangedUnit(x2, y2, "R1", 1, 5)
     b.unitList.append(u2)
     b.unitList.append(u5)
     print(b.unitList)
@@ -599,10 +643,14 @@ def start(x1, y1, x2, y2, flag):
 
     ##############################
     tree = MCTS()
-    # for j in range(50):
-    tree.do_rollout(b) 
-        
-    exit()
+
+    # for j in range(10):
+    #     tree.do_rollout(b) 
+    # bestAction = tree.choose(b)
+    # print(bestAction)
+    # if bestAction[0][1]:
+    #     print((bestAction[0][1].name))
+    # exit()
     gameOver = False
     t = 0
     dataset = []
@@ -611,10 +659,18 @@ def start(x1, y1, x2, y2, flag):
     while(gameOver==False):
         for u in b.unitList:
             if u ==u2: # the player we are intertsed to learn its behaviour! (Ranged unit for now, and the behaviour is "attack closeset" for now!)
+                for j in range(100):
+                    tree.do_rollout(b) 
+                bestAction = tree.choose(b)
+                print(bestAction)
+                # print(tree.Q)
+                input("LOOK AT THIS")
                 if u.active == False:
-                    u.attackClosest(b.unitList)
+                    u.actionList.append(bestAction[0])
                     u.active = True
+
             else:
+                # u.attackClosest(b.unitList)
                 if isinstance(u, workerUnit) and countUnitTypes(b.unitList, "barrack")<1:
                     if u.active == False: # ready to assign actions
                         x1 = np.random.randint(4) 
@@ -653,7 +709,10 @@ def start(x1, y1, x2, y2, flag):
                 data[u2.x][u2.y] = [1, 0]
                 action = eachU.actionList[0]
                 if action[0] == "attack":
-                    u_enemy = action[1]
+                    if isinstance(action[1], Unit):
+                        u_enemy = action[1]
+                    else:
+                        u_enemy = b.returnUnitbyName(b.unitList, action[1])
                     label[(u_enemy.x*4) + u_enemy.y] = 1
                     flag = True
                 elif action[0] == "left":
@@ -698,8 +757,8 @@ def start(x1, y1, x2, y2, flag):
         b.update_board()
         b.Draw()
         print("BOARD E ASLI bood\n")
-        b.find_children()
-        input("NEXT FIND CHILDREN for the next play")
+        # b.find_children()
+        # input("NEXT FIND CHILDREN for the next play")
  
         if b.isOver():
             gameOver =True
