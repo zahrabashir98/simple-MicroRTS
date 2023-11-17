@@ -34,14 +34,22 @@ class Board():
         self.nodeType = "max"
 
     
-    def hash(self):
+    def hash(self): #TODO: CHANGE FOR multi-units game
         p1 = []
         p2 = []
         if self.p1_actions != []:
             p1 = self.p1_actions[0]
         if self.p2_actions != []:
             p2 = self.p2_actions[0]
-        return (tuple(self.board), self.nodeType, tuple(p1), tuple(p2), self.winner, self.is_over)
+        u2_hit = 0
+        u1_hit = 0
+        for each in self.unitList:
+            if each.ownerID == 1:
+                u1_hit = each.hitpoints
+            elif each.ownerID == 2:
+                u2_hit = each.hitpoints
+
+        return (tuple(self.board), self.nodeType, tuple(p1), tuple(p2), u1_hit, u2_hit, self.winner, self.is_over)
     
     # def findEquivalentBoard(self):
     #     return equivalentBoard(self.board, self.nodeType, self.winner, self.is_over)
@@ -123,7 +131,7 @@ class Board():
     
     def find_children(self):
         if self.isOver():  # If the game is finished then no moves can be made
-            return set()
+            return [[],[]] #set()
         # assert self.nodeType == player
         allActions = []
         if self.nodeType == "max":
@@ -668,7 +676,7 @@ def start(x1, y1, x2, y2,x3, y3, i):
     b = Board()
     b.Draw()
 
-    u2 = rangedUnit(x1, y1, "R2", 2, 10)
+    u2 = rangedUnit(x1, y1, "R2", 2, 4)
     u5 = rangedUnit(x2, y2, "R1", 1, 10)
     # u6 = rangedUnit(x3, y3, "R3", 1, 10)
 
@@ -683,25 +691,28 @@ def start(x1, y1, x2, y2,x3, y3, i):
     b.update_board()
     b.Draw()
     print(b.unitList)
-    input()
+    # input()
 
     # print(b.findEquivalentBoard())
     ##############################
     
     tree = MCTS()    
-    for j in range(10):
+    for j in range(100):
         tree.do_rollout(b)
-        input()
+        # input()
 
-    exit()
-    print(len(tree.children))
-    print(tree.children)
-    print("**************\n")
-    print(tree.N)
-    print("**************\n")
-    print(tree.Q)
-    input("********************\n")
-
+    
+    # print(len(tree.children))
+    # # print(tree.children)
+    # print("**************\n")
+    # # print(tree.N)
+    # # print("**************\n")
+    # # print(tree.Q)
+    # input("********************\n")
+    # for nodes in tree.children:
+    #     print(tree.Q[nodes])
+    #     print(tree.N[nodes])
+    # exit()
 
 
     gameOver = False
@@ -754,7 +765,8 @@ def start(x1, y1, x2, y2,x3, y3, i):
         print(u5.actionList)
         print(u2.actionList)
         # print(u6.actionList)
-        b.p1_actions = copy.deepcopy(u5.actionList)
+
+        b.p1_actions = copy.deepcopy(u5.actionList) #TODO: check if this is correct?
         b.p2_actions = copy.deepcopy(u2.actionList)
         print("\nLET'S EVALUATE\n\n")
         # print(b.unitList)
@@ -813,24 +825,24 @@ def win_loss_percentage(winnerList):
 
 if __name__ == "__main__":
     WINNER_LIST = []
-    # for i in range(100):
-    x1 = np.random.randint(4)
-    y1 = np.random.randint(4)
-    x2 = np.random.randint(4)
-    y2 = np.random.randint(4)   
-    x3 = np.random.randint(4)
-    y3 = np.random.randint(4)  
-    while((x1==x2 and y1==y2) or (x1==x3 and y1==y3) ):
+    for i in range(100):
         x1 = np.random.randint(4)
         y1 = np.random.randint(4)
         x2 = np.random.randint(4)
-        y2 = np.random.randint(4) 
+        y2 = np.random.randint(4)   
         x3 = np.random.randint(4)
-        y3 = np.random.randint(4)    
+        y3 = np.random.randint(4)  
+        while((x1==x2 and y1==y2) or (x1==x3 and y1==y3) ):
+            x1 = np.random.randint(4)
+            y1 = np.random.randint(4)
+            x2 = np.random.randint(4)
+            y2 = np.random.randint(4) 
+            x3 = np.random.randint(4)
+            y3 = np.random.randint(4)    
 
-        # print(x1, y1, x2, y2, x3, y3)
-        # WINNER_LIST.append(start(x1, y1, x2, y2, x3, y3, i))
+            # print(x1, y1, x2, y2, x3, y3)
+            # WINNER_LIST.append(start(x1, y1, x2, y2, x3, y3, i))
 
-    WINNER_LIST.append(start(1,1,3,3,1, 1, 0))
-    # print(WINNER_LIST)
+        WINNER_LIST.append(start(1,1,3,3,1, 1, 0))
+        # print(WINNER_LIST)
     print(win_loss_percentage(WINNER_LIST))

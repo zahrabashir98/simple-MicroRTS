@@ -29,7 +29,7 @@ class MCTS:
         # print("THIS IS THE NODE THAT WANTS TO CHOOSE SOMETHING")
         # node.Draw()
         NodeHash = node.hash()
-        if NodeHash[5] == True:
+        if NodeHash[7] == True:
             raise RuntimeError(f"choose called on terminal node {NodeHash}")
 
         if NodeHash not in self.children:
@@ -95,12 +95,18 @@ class MCTS:
 
     def _expand(self, node):
         "Update the `children` dict with the children of `node`"
+
         if node.hash() in self.children:
             print(node.hash())
             print("ALREADY EXPANDED")
             # input()
             return  # already expanded
-        childernObjs, childrenHash = node.find_children()
+        try:
+            childernObjs, childrenHash = node.find_children()
+        except:
+            print(node.hash())
+            print("INJA")
+            input()
         self.children[node.hash()] = childrenHash
         self.childrenObjects[node] = childernObjs
         print((childrenHash))
@@ -168,6 +174,18 @@ class MCTS:
             return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
                 log_N_vertex / self.N[n]
             )
+        def uctMin(n):
+            "Upper confidence bound for trees"
+            return self.Q[n] / self.N[n] - self.exploration_weight * math.sqrt(
+                log_N_vertex / self.N[n]
+            )
+        def uctObjMin(n):
+            "Upper confidence bound for trees"
+            n = n.hash()
+            return self.Q[n] / self.N[n] - self.exploration_weight * math.sqrt(
+                log_N_vertex / self.N[n]
+            )
+        
         if node.nodeType =="max":
             bestHash = max(self.children[nodeHash], key=uct)
             bestobj = max(self.childrenObjects[node], key=uctObj)
@@ -180,8 +198,8 @@ class MCTS:
 
     
         elif node.nodeType == "min":
-            bestHash = min(self.children[nodeHash], key=uct)
-            bestobj = min(self.childrenObjects[node], key=uctObj)
+            bestHash = min(self.children[nodeHash], key=uctMin)
+            bestobj = min(self.childrenObjects[node], key=uctObjMin)
             if bestobj.hash() != bestHash:
                 bestobj.Draw()
                 print(bestHash)
