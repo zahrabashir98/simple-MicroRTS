@@ -8,9 +8,13 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 import math
 from random import choice
+import numpy as np
+import random
 
-
+# np.random.seed(1)
+# random.seed(1)
 class MCTS:
+
     "Monte Carlo tree searcher. First rollout the tree then choose a move."
 
     def __init__(self, exploration_weight=1):
@@ -18,73 +22,71 @@ class MCTS:
         self.N = defaultdict(int)  # total visit count for each node
         self.children = dict()  # children of each node
         self.exploration_weight = exploration_weight
-
+        self.childrenObjects = dict()
 
     def choose(self, node):
         "Choose the best successor of node. (Choose a move in the game)"
         # print("THIS IS THE NODE THAT WANTS TO CHOOSE SOMETHING")
         # node.Draw()
-        if node.isOver():
-            raise RuntimeError(f"choose called on terminal node {node}")
+        NodeHash = node.hash()
+        if NodeHash[5] == True:
+            raise RuntimeError(f"choose called on terminal node {NodeHash}")
 
-        if node not in self.children:
+        if NodeHash not in self.children:
+            # print(NodeHash)
+            # input("HEEERREEE")
             return node.find_random_child()
 
         def score(n):
             if self.N[n] == 0:
                 return float("-inf")  # avoid unseen moves
             return self.Q[n] / self.N[n]  # average reward
-        
 
-        # for child in self.children[node]:
+        # for child in self.children[NodeHash]:
+        #     print(child)
         #     print(self.Q[child]/self.N[child])
-        #     child.Draw()
-        #     print(child.p2_actions)
-        #     print(child.p1_actions)
+        #     # child.Draw()
+        #     print(child[2])
+        #     print(child[3])
         #     input()
-        # print("let's see the max board\n")
-        # max = -10
-        # max_board = []
-        # for each in self.children[node]:    
-        #     if score(each) >=max:
-        #         max = score(each)
-        #         max_board.append(each)
 
-        # best_board = choice(max_board)
-        best_board = max(self.children[node], key=score)
-
-
-        return best_board.p2_actions
+        # best_board = max(self.children[node.hash()], key=score)
+        best_board = max(self.children[NodeHash], key=score)
+        return best_board
+        # return best_board.p2_actions
 
 
     def do_rollout(self, node):
         "Make the tree one layer better. (Train for one iteration.)"
-        # print(type(node))
-        # input("NODE IN ROLLOUT BASHE")
+
         path = self._select(node)
-        # print("after rollout")
+        print(node)
+        # print("AFTER SELECT")
+        print(path)
         leaf = path[-1]
         self._expand(leaf)
+        # print("AFTER EXPAND")
         reward = self._simulate(leaf)
         print("REWARD", reward)
         self._backpropagate(path, reward)
-        # print("after backpropagate")
-        # for eachQ in self.Q:
-        #     eachQ.Draw()
-        #     print(self.Q[eachQ])
-        #     print("*****\n")
-        # print(self.Q)
-        # print(self.N)
+        # print("AFTER BACKPROP\n")
+        # input("******************\n")
 
     def _select(self, node):
         "Find an unexplored descendent of `node`"
         path = []
+        # print("PLAYER IN SELECT")
+        # print(player)
         while True:
             path.append(node)
-            if node not in self.children or not self.children[node]:
-                # node is either unexplored or terminal
+            if node.hash() not in self.children or not self.children[node.hash()]:
                 return path
-            unexplored = self.children[node] - self.children.keys()
+
+            unexplored = self.childrenObjects[node] - self.childrenObjects.keys()
+            # for each in self.children.keys():
+            #     if each in self.children[node.hash()]:
+            #         self.children[node.hash()].remove(each)
+            # unexplored = self.children[node.hash()]
             if unexplored:
                 n = unexplored.pop()
                 path.append(n)
@@ -93,26 +95,27 @@ class MCTS:
 
     def _expand(self, node):
         "Update the `children` dict with the children of `node`"
-        if node in self.children:
+        if node.hash() in self.children:
+            print(node.hash())
+            print("ALREADY EXPANDED")
+            # input()
             return  # already expanded
+        childernObjs, childrenHash = node.find_children()
+        self.children[node.hash()] = childrenHash
+        self.childrenObjects[node] = childernObjs
+        print((childrenHash))
+        print("CHILDREN FOUND")
 
-        self.children[node] = node.find_children()
-        # for each in self.children[node]:
-        #     each.Draw()
-        #     print(each.p2_actions)
-        # print(node.find_children())
-        # input("children found")
+
 
     def _simulate(self, node):
         "Returns the reward for a random simulation (to completion) of `node`"
-        # print("begin simulate")
+        print("begin simulate")
         invert_reward = True
+        i =0 
         while True:
             if node.isOver() == True:
-                # print("ISOVERRR!!!")
-                # print(node.winner)
-                # input("JALEB SHOD")
-                #reward?
+
                 if node.winner == 0:
                     AssertionError
                     print("BAD STATUS")
@@ -125,39 +128,67 @@ class MCTS:
                 else:
                     AssertionError
                     return None
-                # return 1 - reward if invert_reward else reward #TODO: how to assign reward in Realtime games?
-            # print(node.board)
-            # input("THIS IS THE BOARD")
+            node.Draw()
+            for u in node.unitList:
+                print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
 
             node = node.find_random_child()
+
+            # print("\nINFO FOR the random child with i=", i)
+            # print(node.nodeType)
             # node.Draw()
-            
-            # for u in node.unitList:
-            #     print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
-            # print("***********")
-            invert_reward = not invert_reward
+
+            # print("****************\n")
+
+            i+=1
+            # invert_reward = not invert_reward
+
+        
     def _backpropagate(self, path, reward):
         "Send the reward back up to the ancestors of the leaf"
         for node in reversed(path):
-            # print("IN BP")
-            # print(node)
-            # input()
-            self.N[node] += 1
-            self.Q[node] += reward
+            self.N[node.hash()] += 1
+            self.Q[node.hash()] += reward
             # reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
 
     def _uct_select(self, node):
         "Select a child of node, balancing exploration & exploitation"
-
+        nodeHash = node.hash()
         # All children of node should already be expanded:
-        assert all(n in self.children for n in self.children[node])
-        log_N_vertex = math.log(self.N[node])
+        assert all(n in self.children for n in self.children[nodeHash])
+        log_N_vertex = math.log(self.N[nodeHash])
         def uct(n):
             "Upper confidence bound for trees"
             return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
                 log_N_vertex / self.N[n]
             )
-        return max(self.children[node], key=uct)
+        def uctObj(n):
+            "Upper confidence bound for trees"
+            n = n.hash()
+            return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
+                log_N_vertex / self.N[n]
+            )
+        if node.nodeType =="max":
+            bestHash = max(self.children[nodeHash], key=uct)
+            bestobj = max(self.childrenObjects[node], key=uctObj)
+            if bestobj.hash() != bestHash:
+                bestobj.Draw()
+                print(bestHash)
+                print("SHOULDN't have happened")
+                AssertionError
+            return bestobj
+
+    
+        elif node.nodeType == "min":
+            bestHash = min(self.children[nodeHash], key=uct)
+            bestobj = min(self.childrenObjects[node], key=uctObj)
+            if bestobj.hash() != bestHash:
+                bestobj.Draw()
+                print(bestHash)
+                print("SHOULDN't have happened")
+                AssertionError
+            return bestobj
+
 
 
 class Node(ABC):

@@ -35,84 +35,85 @@ class MCTS:
                 return float("-inf")  # avoid unseen moves
             return self.Q[n] / self.N[n]  # average reward
         
+        # for each in self.children[node]: 
+        #     print("**START E BACHE HAYE NODE E ROOT")
+            # grandchildren = self.children[each]
+            # print(len(grandchildren))
+            # for child in grandchildren:
+            #     print(self.Q[child])
+            #     print(self.N[child])
+            #     print(score(child))
+            #     child.Draw()
 
-        # for child in self.children[node]:
-        #     print(self.Q[child]/self.N[child])
-        #     child.Draw()
-        #     print(child.p2_actions)
-        #     print(child.p1_actions)
-        #     input()
-        # print("let's see the max board\n")
-        # max = -10
-        # max_board = []
-        # for each in self.children[node]:    
-        #     if score(each) >=max:
-        #         max = score(each)
-        #         max_board.append(each)
+            
+            # print(each.p1_actions)
+            # print(each.p2_actions)
 
-        # best_board = choice(max_board)
+            # each.Draw()
+            # print(self.Q[each])
+            # print(self.N[each])
+            # print(score(each))
+            # input("*******")
+        
+
         best_board = max(self.children[node], key=score)
-
-
+        # return best_board
         return best_board.p2_actions
 
 
-    def do_rollout(self, node):
+    def do_rollout(self, node, player):
         "Make the tree one layer better. (Train for one iteration.)"
-        # print(type(node))
-        # input("NODE IN ROLLOUT BASHE")
-        path = self._select(node)
-        # print("after rollout")
-        leaf = path[-1]
-        self._expand(leaf)
-        reward = self._simulate(leaf)
-        print("REWARD", reward)
-        self._backpropagate(path, reward)
-        # print("after backpropagate")
-        # for eachQ in self.Q:
-        #     eachQ.Draw()
-        #     print(self.Q[eachQ])
-        #     print("*****\n")
-        # print(self.Q)
-        # print(self.N)
 
-    def _select(self, node):
+        path = self._select(node, player)
+        # print("PATH", path)
+        leaf = path[-1]
+        # print("LEAF", leaf)
+        # print("TYEP E LEAF", leaf.nodeType)
+        self._expand(leaf, player)
+        # print("**********AFTER FIND/EXPAND e children")
+        # print("STARTED SIMULATION")
+        reward = self._simulate(leaf, player)
+        # print("*****AFTER SIMULATE")
+        # print("REWARD", reward)
+        self._backpropagate(path, reward)
+        # print("**AFTER BACKPROP")
+
+    def _select(self, node, player):
         "Find an unexplored descendent of `node`"
         path = []
+        # print("PLAYER IN SELECT")
+        # print(player)
         while True:
             path.append(node)
+            
             if node not in self.children or not self.children[node]:
                 # node is either unexplored or terminal
+                input("UMAD TOO IN IF")
                 return path
             unexplored = self.children[node] - self.children.keys()
+
             if unexplored:
                 n = unexplored.pop()
                 path.append(n)
                 return path
-            node = self._uct_select(node)  # descend a layer deeper
+            node = self._uct_select(node, player)  # descend a layer deeper
 
-    def _expand(self, node):
+    def _expand(self, node, player):
         "Update the `children` dict with the children of `node`"
         if node in self.children:
             return  # already expanded
+        self.children[node] = node.find_children(player)
 
-        self.children[node] = node.find_children()
-        # for each in self.children[node]:
-        #     each.Draw()
-        #     print(each.p2_actions)
-        # print(node.find_children())
-        # input("children found")
 
-    def _simulate(self, node):
+
+    def _simulate(self, node, player):
         "Returns the reward for a random simulation (to completion) of `node`"
         # print("begin simulate")
         invert_reward = True
+        i =0 
         while True:
             if node.isOver() == True:
-                # print("ISOVERRR!!!")
-                # print(node.winner)
-                # input("JALEB SHOD")
-                #reward?
+
                 if node.winner == 0:
                     AssertionError
                     print("BAD STATUS")
@@ -125,28 +126,28 @@ class MCTS:
                 else:
                     AssertionError
                     return None
-                # return 1 - reward if invert_reward else reward #TODO: how to assign reward in Realtime games?
-            # print(node.board)
-            # input("THIS IS THE BOARD")
 
-            node = node.find_random_child()
+            node = node.find_random_child(player)
+            # print("\nINFO FOR the random child with i=", i)
+            # print(node.nodeType)
             # node.Draw()
-            
             # for u in node.unitList:
             #     print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
-            # print("***********")
-            invert_reward = not invert_reward
+
+            # print("****************\n")
+
+            i+=1
+            # invert_reward = not invert_reward
+
+
     def _backpropagate(self, path, reward):
         "Send the reward back up to the ancestors of the leaf"
         for node in reversed(path):
-            # print("IN BP")
-            # print(node)
-            # input()
             self.N[node] += 1
             self.Q[node] += reward
             # reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
 
-    def _uct_select(self, node):
+    def _uct_select(self, node, player):
         "Select a child of node, balancing exploration & exploitation"
 
         # All children of node should already be expanded:
@@ -157,7 +158,11 @@ class MCTS:
             return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
                 log_N_vertex / self.N[n]
             )
-        return max(self.children[node], key=uct)
+        if player =="max":
+            return max(self.children[node], key=uct)
+        elif player == "min":
+            return min(self.children[node], key=uct)
+
 
 
 class Node(ABC):
