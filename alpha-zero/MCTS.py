@@ -27,50 +27,48 @@ class MCTS:
         self.Pi = dict()
 
     def returnDist(self, node):
-        NodeHash = node.hash()
-        if NodeHash[7] == True:
-            raise RuntimeError(f"choose called on terminal node {NodeHash}")
+        # NodeHash = node.hash()
+        if node.is_over == True:
+            raise RuntimeError(f"choose called on terminal node {node}")
         visit_array = np.zeros(21)
         
         if node.nodeType == "max": #player2's turn to play (in my setting, player 2 starts) child[3] = p2_actions
-            for child in self.children[NodeHash]:
-                
-                if child[3][0] == "attack":
+            for child in self.childrenObjects[node]:
+                # input(child.p2_actions[0][0])
+                if child.p2_actions[0][0] == "attack":
                     for unit in node.unitList:
                         if unit.ownerID ==1:
                             pos = unit.x*4 + unit.y
                             visit_array[pos] = self.N[child]
 
-                elif child[3][0] == "left":
+                elif child.p2_actions[0][0] == "left":
                     visit_array[16] = self.N[child]
-                elif child[3][0] == "right":
+                elif child.p2_actions[0][0] == "right":
                     visit_array[17] = self.N[child]
-                elif child[3][0] == "up":
+                elif child.p2_actions[0][0] == "up":
                     visit_array[18] = self.N[child]
-                elif child[3][0] == "down":
+                elif child.p2_actions[0][0] == "down":
                     visit_array[19] = self.N[child]
         
         elif node.nodeType == "min": #player1's turn to play child[2] = p1_actions
-            for child in self.children[NodeHash]:
-                if child[2][0] == "attack": #[1] is the target
+            for child in self.childrenObjects[node]:
+                # input(child.p1_actions[0][0])
+                if child.p1_actions[0][0] == "attack": #[1] is the target
                     for unit in node.unitList:
                         if unit.ownerID ==2:
                             pos = unit.x*4 + unit.y
                             visit_array[pos] = self.N[child]
 
-                elif child[2][0] == "left":
+                elif child.p1_actions[0][0] == "left":
                     visit_array[16] = self.N[child]
-                elif child[2][0] == "right":
+                elif child.p1_actions[0][0] == "right":
                     visit_array[17] = self.N[child]
-                elif child[2][0] == "up":
+                elif child.p1_actions[0][0] == "up":
                     visit_array[18] = self.N[child]
-                elif child[2][0] == "down":
+                elif child.p1_actions[0][0] == "down":
                     visit_array[19] = self.N[child]  
 
-                    
-        print(visit_array)
         visit_array /= sum(visit_array)
-        print(visit_array)
         return visit_array
         
     def choose(self, node):
@@ -78,11 +76,11 @@ class MCTS:
         # print("THIS IS THE NODE THAT WANTS TO CHOOSE SOMETHING")
         # node.Draw()
         print("RAFT TOO CHOOSE")
-        NodeHash = node.hash()
-        if NodeHash[7] == True:
-            raise RuntimeError(f"choose called on terminal node {NodeHash}")
 
-        if NodeHash not in self.children:
+        if node.is_over == True:
+            raise RuntimeError(f"choose called on terminal node {node}")
+
+        if node not in self.childrenObjects:
             input("HEEERREEE")
             assert 3!=3
             return node.find_random_child()
@@ -123,23 +121,18 @@ class MCTS:
         # print(player)
         while True:
             path.append(node)
-            if node.hash() not in self.children or not self.children[node.hash()]:
+            if node not in self.childrenObjects or not self.childrenObjects[node]:
                 return path
-
+        
             unexplored = self.childrenObjects[node] - self.childrenObjects.keys()
-            flag = True
             if unexplored:
                 n = unexplored.pop()
-                # if n.hash() in self.children.keys():
-                #     print("HAST TOO IN")
-                #     flag = False
-                # if flag:
                 path.append(n)
                 return path
-            print("WANTS TO USE UCT")
+
             node = self._uct_select(node)  # descend a layer deeper
-            print("UCT - NOW AFTER ONE LAYER DEEPENING\nNEW NODE:\n")
-            print(node.hash())
+            # print("UCT - NOW AFTER ONE LAYER DEEPENING\nNEW NODE:\n")
+            # print(node.hash())
             
     
     def mask_probability_vector(self, allIndexes, P):
@@ -152,12 +145,25 @@ class MCTS:
 
 
     def create_dataset(self, board):
-        data = np.zeros((4,4, 2))
-        for eachU in board.unitList:
-            if eachU.ownerID == 2:
-                data[eachU.x][eachU.y] = [1, 0]
-            else:
-                data[eachU.x][eachU.y] = [0, 1]
+        data = np.zeros((4, 4, 2))
+        if board.nodeType == "max":
+            for eachU in board.unitList:
+                if eachU.ownerID == 2:
+                    data[eachU.x][eachU.y] = [1, 0]
+                else:
+                    data[eachU.x][eachU.y] = [0, 1]
+            third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
+            data = np.concatenate((data,third_layer), axis = 2)
+                
+        elif board.nodeType == "min":
+            for eachU in board.unitList:
+                if eachU.ownerID == 2:
+                    data[eachU.x][eachU.y] = [1, 0]
+                else:
+                    data[eachU.x][eachU.y] = [0, 1]
+            third_layer = np.ones((4,4,1))
+            data = np.concatenate((data,third_layer), axis = 2)
+        
         return data
 
 
@@ -173,17 +179,15 @@ class MCTS:
         
         data = self.create_dataset(node)
         # print(data)
-        data = np.array(data).reshape(1, 4, 4, 2)
+        data = np.array(data).reshape(1, 4, 4, 3)
         output = model.model.predict(data)
 
         p = output[0][0]
         v = output[1][0][0]
         print(p , v)
 
-        
-
         try:
-            childernObjs, childrenHash, allIndexes = node.find_children(p)
+            childernObjs, _, allIndexes = node.find_children(p)
         except:
             print(node.hash())
             print("INJA")
@@ -199,97 +203,62 @@ class MCTS:
                 if node.winner == 2:
                     value = 1
                 if node.winner == 0.5:
-                    value = 0.5
+                    value = 0
             elif root.nodeType == "min":
                 if node.winner == 1:
                     value = 1
                 if node.winner == 2:
                     value = -1
                 if node.winner == 0.5:
-                    value = 0.5
+                    value = 0
             return value #AS V
         
         newP = self.mask_probability_vector(allIndexes, p)
-        print(allIndexes)
         if allIndexes == []:
-            print(childernObjs, childrenHash)
-        print(newP)
+            print(childernObjs)
         newP = np.array(newP)
-        if np.isnan(newP).all()==True:
-            assert 1!=1
-        self.children[node.hash()] = childrenHash 
+
         self.childrenObjects[node] = childernObjs
         i = 0
-        for childHash in childrenHash:
-            self.Pi[childHash] = newP[i]
+        for each in childernObjs:
+            self.Pi[each] = newP[i]
             i += 1
 
-        print((childrenHash))
         print("CHILDREN FOUND and Ps assigned") #TODO: assing 1 to the root node
         return v
         
     def _backpropagate(self, path, reward):
         "Send the reward back up to the ancestors of the leaf"
         for node in reversed(path):
-            self.N[node.hash()] += 1
-            self.Q[node.hash()] += reward
-            # reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
+            self.N[node] += 1
+            self.Q[node] += reward
+            # reward *= -1  # 1 for me is 0 for my enemy, and vice versa
 
     def _uct_select(self, node):
         "Select a child of node, balancing exploration & exploitation"
-        nodeHash = node.hash()
+        # nodeHash = node.hash()
         # All children of node should already be expanded:
-        assert all(n in self.children for n in self.children[nodeHash])
-        log_N_vertex = math.log(self.N[nodeHash]) 
+        assert all(n in self.childrenObjects for n in self.childrenObjects[node])
+        log_N_vertex = math.log(self.N[node]) 
         def uct(n): # if N = 0-> ignore the first term
             "Upper confidence bound for trees"
             return (self.Q[n] / self.N[n]) + self.exploration_weight * self.Pi[n] * math.sqrt(
                 log_N_vertex)/ (self.N[n]+1)
-
-
-        def uctObj(n):
-            "Upper confidence bound for trees"
-            n = n.hash()
-            print(n)
-            return (self.Q[n] / self.N[n]) + self.exploration_weight * self.Pi[n] * math.sqrt(
-                log_N_vertex)/ (self.N[n]+1)
-
 
         def uctMin(n):
             "Upper confidence bound for trees"
             return (self.Q[n] / self.N[n]) - self.exploration_weight * self.Pi[n] * math.sqrt(
                 log_N_vertex)/ (self.N[n]+1)
 
-
-        def uctObjMin(n):
-            "Upper confidence bound for trees"
-            n = n.hash()
-            return (self.Q[n] / self.N[n]) - self.exploration_weight * self.Pi[n] * math.sqrt(
-                log_N_vertex)/ (self.N[n]+1)
-
-
         if node.nodeType =="max":
             print("UCT MAX")
-            bestHash = max(self.children[nodeHash], key=uct)
-            bestobj = max(self.childrenObjects[node], key=uctObj)
-            if bestobj.hash() != bestHash:
-                bestobj.Draw()
-                print(bestHash)
-                print(bestobj.hash())
-                print("SHOULDN't have happened")
-                assert 1!=1
+            bestobj = max(self.childrenObjects[node], key=uct)
             return bestobj
 
     
         elif node.nodeType == "min":
             print("UCT MIN")
-            bestHash = min(self.children[nodeHash], key=uctMin)
-            bestobj = min(self.childrenObjects[node], key=uctObjMin)
-            if bestobj.hash() != bestHash:
-                bestobj.Draw()
-                print(bestHash)
-                print("SHOULDN't have happened")
-                assert 1!=1
+            bestobj = min(self.childrenObjects[node], key=uctMin)
             return bestobj
 
 

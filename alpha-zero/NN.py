@@ -33,7 +33,7 @@ class NN:
 
         # Head 2 for object detection
         dense1_head2 = Dense(128, activation='relu')(flatten)
-        output_head2 = Dense(self.dim_of_value, activation='sigmoid', name="output_head2")(dense1_head2)
+        output_head2 = Dense(self.dim_of_value, activation='tanh', name="output_head2")(dense1_head2) #between -1 and 1
         # output_head2 = Dense(1, activation='linear')(dense1_head2)
 
         # Create a merged model

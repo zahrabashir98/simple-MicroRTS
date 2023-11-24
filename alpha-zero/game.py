@@ -143,7 +143,8 @@ class Board():
             for each in self.unitList:
                 if isinstance(each, rangedUnit): #TODO: support other types later
                     if each.ownerID == 1:
-                        allActions = set(each.allPossibleActions(self.unitList))
+                        allActions = set(each.allPossibleAttacks(self.unitList))
+                        # allActions = set(each.allPossibleActions(self.unitList)) #CHANGED ALL ACTION
 
 
         allObjs = []
@@ -679,12 +680,25 @@ def evaluate(action, u_me, b, board):
 
 
 def create_dataset(board):
-    data = np.zeros((4,4, 2))
-    for eachU in board.unitList:
-        if eachU.ownerID == 2:
-            data[eachU.x][eachU.y] = [1, 0]
-        else:
-            data[eachU.x][eachU.y] = [0, 1]
+    data = np.zeros((4, 4, 2))
+    if board.nodeType == "max":
+        for eachU in board.unitList:
+            if eachU.ownerID == 2:
+                data[eachU.x][eachU.y] = [1, 0]
+            else:
+                data[eachU.x][eachU.y] = [0, 1]
+        third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
+        data = np.concatenate((data,third_layer), axis = 2)
+            
+    elif board.nodeType == "min":
+        for eachU in board.unitList:
+            if eachU.ownerID == 2:
+                data[eachU.x][eachU.y] = [1, 0]
+            else:
+                data[eachU.x][eachU.y] = [0, 1]
+        third_layer = np.ones((4,4,1))
+        data = np.concatenate((data,third_layer), axis = 2)
+    
     return data
     
 ###############################################################################################################
@@ -716,15 +730,6 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
 
     gameOver = False
     t = 0
-    dataset = []
-    labels = []
-    count = 0
-
-
-
-
-    # model.fit(x_train, y_train_classification, epochs=10, batch_size=32)
-
 
     tree = MCTS()  #??
     memory_states  = []
@@ -733,7 +738,7 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
     # one game -> to the end
     root = b
     print(root.hash())
-    input("THIS WAS ROOT")
+    # input("THIS WAS ROOT")
 
     while(gameOver==False):
         for u in b.unitList:
@@ -786,16 +791,16 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
             print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
 
         # print(t)
-        input("T=%s ended!"%t)
+        # input("T=%s ended!"%t)
         
         t +=1
-        if t>=100:
-            input("MORE THAN 100, exit")
+        if t>=max_iterations:
+            # input("MORE THAN 100, exit") #TODO: check how often?
             b.is_over = True
             b.winner = 0.5
             break
  
-    input("biroone while\n")
+    # input("biroone while\n")
     if root.nodeType == "max" and b.winner == 2:
         val = 1
         for _ in range(len(memory_states)):
@@ -832,41 +837,52 @@ def win_loss_percentage(winnerList):
 
 if __name__ == "__main__":
     WINNER_LIST = []
-    input_shape = (4, 4, 2)
+    input_shape = (4, 4, 3)
     dim_of_policy = 21
     dim_of_value = 1
     model = NN(input_shape, dim_of_policy, dim_of_value)
     model.compile_model(loss_classification='categorical_crossentropy',
                     loss_detection='mean_squared_error',
                         optimizer='adam') #should it be called once?
-    max_iterations = 100
-    for i in range(2):
+    max_iterations = 30
+    dataset = []
+    pi_list = []
+    z_list = []
+
+    for i in range(30):
         x1 = np.random.randint(4)
         y1 = np.random.randint(4)
         x2 = np.random.randint(4)
         y2 = np.random.randint(4)   
-  
         while(x1==x2 and y1==y2):
             x1 = np.random.randint(4)
             y1 = np.random.randint(4)
             x2 = np.random.randint(4)
-            y2 = np.random.randint(4) 
-            # print(x1, y1, x2, y2, x3, y3)
-            # WINNER_LIST.append(start(x1, y1, x2, y2, x3, y3, i))
-        winner, states, pis, zs = start(1,1,3,3,1, 1, max_iterations, model)
+            y2 = np.random.randint(4)
+        #1,1,3,3,1, 1
+        winner, states, pis, zs = start(x1,y1,x2,y2,1,1, max_iterations, model) # one self-play
         # print(states, pis, zs)
-        dataset = []
+        
         for each in states:
             dataset.append(create_dataset(each))
+        for p in pis:
+            pi_list.append(p)
+        for z in zs:
+            z_list.append(z)
 
-        dataset = np.array(dataset)
-        pis = np.array(pis)
-        zs = np.array(zs).reshape(len(zs), 1)
-        print(dataset.shape)
-        print(pis.shape)
-        print(zs.shape)
-        model.fit_model(dataset, pis, zs, epochs=50, batch_size=8)
 
-        # AFTER ONE game => training data -> now let's train our NN
-        # print(WINNER_LIST)
-    print(win_loss_percentage([winner]))
+    dataset = np.array(dataset)
+    pi_list = np.array(pi_list)
+    z_list = np.array(z_list).reshape(len(z_list), 1)
+    print(dataset.shape)
+    print(pi_list.shape)
+    print(z_list.shape)
+    model.fit_model(dataset, pi_list, z_list, epochs=50, batch_size=8)
+
+    data = np.zeros((4, 4, 2))
+    data[1,1] = [1,0]
+    data[3,3] = [0,1]
+
+    third_layer = np.ones((4,4,1))
+    data = np.concatenate((data,third_layer), axis = 2).reshape(1, 4,4,3)
+    print(model.model.predict(data))
