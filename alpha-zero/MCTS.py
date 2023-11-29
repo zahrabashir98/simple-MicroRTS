@@ -18,7 +18,7 @@ class MCTS:
 
     "Monte Carlo tree searcher. First rollout the tree then choose a move."
 
-    def __init__(self, exploration_weight=1):
+    def __init__(self, exploration_weight=1.5):
         self.Q = defaultdict(int)  # total reward of each node
         self.N = defaultdict(int)  # total visit count for each node
         self.children = dict()  # children of each node
@@ -37,7 +37,7 @@ class MCTS:
                 # input(child.p2_actions[0][0])
                 if child.p2_actions[0][0] == "attack":
                     for unit in node.unitList:
-                        if unit.ownerID ==1:
+                        if unit.ownerID ==1: #!=player 2
                             pos = unit.x*4 + unit.y
                             visit_array[pos] = self.N[child]
 
@@ -49,6 +49,9 @@ class MCTS:
                     visit_array[18] = self.N[child]
                 elif child.p2_actions[0][0] == "down":
                     visit_array[19] = self.N[child]
+                else:
+                    visit_array[20] = 1
+                    assert 10!=10
         
         elif node.nodeType == "min": #player1's turn to play child[2] = p1_actions
             for child in self.childrenObjects[node]:
@@ -67,15 +70,24 @@ class MCTS:
                     visit_array[18] = self.N[child]
                 elif child.p1_actions[0][0] == "down":
                     visit_array[19] = self.N[child]  
-
-        visit_array /= sum(visit_array)
+                else:
+                    visit_array[20] = 1
+                    assert 11!=11
+        try:
+            visit_array /= sum(visit_array)
+        except:
+            print(visit_array)
+            print(node.hash())
+            print(self.childrenObjects[node])
+            input("THIS HAPPENED")
+            assert 12!=12
         return visit_array
         
     def choose(self, node):
         "Choose the best successor of node. (Choose a move in the game)"
         # print("THIS IS THE NODE THAT WANTS TO CHOOSE SOMETHING")
         # node.Draw()
-        print("RAFT TOO CHOOSE")
+        print("RAFT TOO CHOOSE\n*****************\n\n")
 
         if node.is_over == True:
             raise RuntimeError(f"choose called on terminal node {node}")
@@ -90,8 +102,15 @@ class MCTS:
                 return float("-inf")  # avoid unseen moves
             return self.Q[n] / self.N[n]  # average reward
 
-
-        # best_board = max(self.children[NodeHash], key=score)      
+        count = 0
+        for each in self.childrenObjects[node]:
+            print(self.N[each])
+            print(self.Q[each])
+            if score(each) == float("-inf"):
+                count += 1
+        if count == len(self.childrenObjects[node]):
+            print("WOWWWWW")
+            # assert 20!=20
         best_board = max(self.childrenObjects[node], key=score)
         return best_board
         # return best_board.p2_actions
@@ -99,13 +118,23 @@ class MCTS:
 
     def do_rollout(self, node, model):
         "Make the tree one layer better. (Train for one iteration.)"
+        print("AVVALE ROLLOUT")
+        terminal_set = set()
         root = node
-        path = self._select(node)
+        path = self._select(node, terminal_set)
         print("AFTER SELECT")
         print(path)
         leaf = path[-1]
         reward = self._expand(leaf, model, root)
+        if leaf.is_over == True:
+            terminal_set.add(leaf)
+            print("LEAF ADDED TO TERMINAL NODES")
         print("reward", reward)
+        try:
+            if np.isnan(reward):
+                assert 100!=100
+        except:
+            input()
         if reward: # if already expanded, then do nothing?
             self._backpropagate(path, reward)
         
@@ -113,7 +142,7 @@ class MCTS:
     
 
 
-    def _select(self, node): # a probable error happens when you are not expanding the tree that much and i cuases you to want to select a node that it is not still in the childreb, (but it isnt a terminal or )
+    def _select(self, node, terminal_set): # a probable error happens when you are not expanding the tree that much and i cuases you to want to select a node that it is not still in the childreb, (but it isnt a terminal or )
         #solution: add a if statment, check if the node is in self.childrenobjects, otherwise, (kolan moshkele) fek kon A baz shode shode b o c -> b 5 ta child dare c d e f g - yekish expand nashode baghiash shode, baad oon yeki choose mishe chon baghie manfi budan ya harchi
         "Find an unexplored descendent of `node`"
         path = []
@@ -124,12 +153,12 @@ class MCTS:
             if node not in self.childrenObjects or not self.childrenObjects[node]:
                 return path
         
-            unexplored = self.childrenObjects[node] - self.childrenObjects.keys()
+            unexplored = self.childrenObjects[node] - self.childrenObjects.keys()#- terminal_set
             if unexplored:
                 n = unexplored.pop()
                 path.append(n)
                 return path
-
+            
             node = self._uct_select(node)  # descend a layer deeper
             # print("UCT - NOW AFTER ONE LAYER DEEPENING\nNEW NODE:\n")
             # print(node.hash())
@@ -145,46 +174,51 @@ class MCTS:
 
 
     def create_dataset(self, board):
-        data = np.zeros((4, 4, 2))
+        data = np.zeros((2, 4, 4))
+        fourth_layer = np.zeros((1, 4, 4))
         if board.nodeType == "max":
             for eachU in board.unitList:
                 if eachU.ownerID == 2:
-                    data[eachU.x][eachU.y] = [1, 0]
+                    data[0][eachU.x][eachU.y] = 1
+                    fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
                 else:
-                    data[eachU.x][eachU.y] = [0, 1]
-            third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
-            data = np.concatenate((data,third_layer), axis = 2)
-                
+                    data[1][eachU.x][eachU.y] = 1
+                    fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
+
+            third_layer = np.zeros((1,4,4)) #Player turn to play - o for p2 (player1)
+            data = np.concatenate((data,third_layer, fourth_layer))
+
+
         elif board.nodeType == "min":
             for eachU in board.unitList:
                 if eachU.ownerID == 2:
-                    data[eachU.x][eachU.y] = [1, 0]
+                    data[0][eachU.x][eachU.y] = 1
+                    fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
                 else:
-                    data[eachU.x][eachU.y] = [0, 1]
-            third_layer = np.ones((4,4,1))
-            data = np.concatenate((data,third_layer), axis = 2)
-        
+                    data[1][eachU.x][eachU.y] = 1
+                    fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
+
+            third_layer = np.ones((1,4,4))
+            data = np.concatenate((data,third_layer, fourth_layer))
+
         return data
 
 
     def _expand(self, node, model, root):
         "Update the `children` dict with the children of `node`"
 
-        # if node.hash() in self.children:
-        #     print(node.hash())
-        #     print("ALREADY EXPANDED/game is over")
-        #     # input()
-        #     # assert node.is_over!=True
-        #     return  # already expanded
-        
+        if node in self.childrenObjects:
+            print("ALREADY EXPANDED\n")
+            assert 14!=14
+            return  # already expanded
+    
         data = self.create_dataset(node)
-        # print(data)
-        data = np.array(data).reshape(1, 4, 4, 3)
+        data = np.array(data).reshape(1, 4, 4, 4)
         output = model.model.predict(data)
-
+        # print(output)
         p = output[0][0]
         v = output[1][0][0]
-        print(p , v)
+        # print(p , v)
 
         try:
             childernObjs, _, allIndexes = node.find_children(p)
@@ -193,11 +227,15 @@ class MCTS:
             print("INJA")
             assert 2!=2
             input()
-
+        
+        # print(allIndexes)
         #CALL NN and expand the node using P 
+
         if node.is_over == True:
             # if node.winner ==2:
             if root.nodeType == "max":
+                print(self.Pi[node])
+                print("#################\n\n")
                 if node.winner == 1:
                     value = -1
                 if node.winner == 2:
@@ -205,25 +243,37 @@ class MCTS:
                 if node.winner == 0.5:
                     value = 0
             elif root.nodeType == "min":
+                print(self.Pi[node])
+                print("#################\n\n")
                 if node.winner == 1:
                     value = 1
                 if node.winner == 2:
                     value = -1
                 if node.winner == 0.5:
                     value = 0
+            print(node.hash())
+            # assert 17!=17
+            # input
             return value #AS V
         
-        newP = self.mask_probability_vector(allIndexes, p)
-        if allIndexes == []:
-            print(childernObjs)
-        newP = np.array(newP)
 
+        if allIndexes == []:
+            print(p)
+            print(node.hash())
+            assert 5!=5
+        
+        newP = self.mask_probability_vector(allIndexes, p)
+        newP = np.array(newP)
         self.childrenObjects[node] = childernObjs
+
         i = 0
         for each in childernObjs:
+            # print(each.hash())
+            # each.Draw()
             self.Pi[each] = newP[i]
             i += 1
-
+            # print("****\n")
+        # input()
         print("CHILDREN FOUND and Ps assigned") #TODO: assing 1 to the root node
         return v
         

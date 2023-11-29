@@ -17,13 +17,13 @@ class NN:
         # Shared convolutional layers
         num_filters = 32
         filter_size = 1
-        pool_size = 1
+        pool_size = 2
         conv1 = Conv2D(num_filters, filter_size, activation='relu')(input_layer)
         batch = BatchNormalization()(conv1)
-        drop1 = Dropout(0.25)(batch)
+        drop1 = Dropout(0.2)(batch)
         maxpool1 = MaxPooling2D(pool_size=pool_size)(drop1)
         conv2 = Conv2D(64, 1, activation='relu')(maxpool1)
-        drop2 = Dropout(0.3)(conv2)
+        drop2 = Dropout(0.1)(conv2)
         maxpool2 = MaxPooling2D((2, 2))(drop2)
         flatten = Flatten()(maxpool2)
 
@@ -46,12 +46,14 @@ class NN:
         self.model.compile(
             loss={'output_head1': loss_classification, 'output_head2': loss_detection},
             optimizer=optimizer,
-            metrics={'output_head1': 'accuracy', 'output_head2': 'mean_squared_error'}
+            metrics={'output_head1': 'accuracy', 'output_head2': 'mean_squared_error'} #precision
         )
 
     def fit_model(self, x_train, y_train_head1, y_train_head2, epochs, batch_size):
-        self.model.fit(x_train, {'output_head1': y_train_head1, 'output_head2': y_train_head2},
+        history= self.model.fit(x_train, {'output_head1': y_train_head1, 'output_head2': y_train_head2},
                        epochs=epochs, batch_size=batch_size)
+        return history
+        print(history.history['loss'])
 
 # Usage example:
 # input_shape = (4, 4, 2)

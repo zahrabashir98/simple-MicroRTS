@@ -8,9 +8,10 @@ import random
 from collections import namedtuple
 from MCTS import MCTS, Node
 from NN import *
+from tensorflow.keras.models import Sequential, model_from_json
 
-np.random.seed(1)
-random.seed(1)
+# np.random.seed(1)
+# random.seed(1)
 class Board():
 
     def __init__(self):
@@ -138,12 +139,12 @@ class Board():
             for each in self.unitList:
                 if isinstance(each, rangedUnit): #TODO: support other types later
                     if each.ownerID == 2:
-                        allActions = set(each.allPossibleAttacks(self.unitList))
+                        allActions = set(each.allPossibleActions(self.unitList))
         elif self.nodeType == "min":
             for each in self.unitList:
                 if isinstance(each, rangedUnit): #TODO: support other types later
                     if each.ownerID == 1:
-                        allActions = set(each.allPossibleAttacks(self.unitList))
+                        allActions = set(each.allPossibleActions(self.unitList))
                         # allActions = set(each.allPossibleActions(self.unitList)) #CHANGED ALL ACTION
 
 
@@ -155,7 +156,7 @@ class Board():
             allObjs.append(obj)
             allHash.append(hassh)
             allIndexes.append(index)
- 
+
         return allObjs, allHash, allIndexes
 
     def find_random_child(self):
@@ -172,12 +173,24 @@ class Board():
         for u in unitList:
             if u.name == name:
                 return u
-        
+    def returnUnitbyPos(self, unitList, x , y): #TODO: make sure we don't have duplicate names
+        for u in unitList:
+            if u.x == x and u.y==y:
+                return u
+    
+    def check_if_it_can_move(self, pos):
+        if self.board[pos] == "  ":
+            return True
+        else:
+            return False
     def make_move(self, action): # TODO: remove duplicate states? (check every attribute)
         #TODO: this is for only 2 unit games. we have to extend it to other for than two unit ones later?
         
-        # print("*********************START OF CHILDREN\n")
+        # print("================START OF Make MOVE\n")
+        # print(action)
+        # print(self.nodeType)
         if self.nodeType == "max":
+            # print("node is max AND CHILDREN ARE min")
             tmp = copy.deepcopy(self)
             tmp.nodeType = "min"
             tmp.p2_actions = []
@@ -200,10 +213,14 @@ class Board():
                     elif action[:6] == "attack":
                         unitName = action[7:]
                         targetUnit = tmp.returnUnitbyName(tmp.unitList, unitName)
-                        tmp.p2_actions.append([action[:6], targetUnit.name])
+                        tmp.p2_actions.append([action[:6], unitName])
                         index = targetUnit.x * 4 + targetUnit.y
+                    else:
+                        index = 20
+                        assert 8!=8
 
         elif self.nodeType == "min":
+            # print("NODE IS MIN AND CHILDREN ARE MAX")
 
             tmp = copy.deepcopy(self)
             tmp.nodeType = "max"
@@ -212,51 +229,79 @@ class Board():
             # print("MAKE MOVE< NODE MIN - prev_p2_actions")
             # print("ACTION", action)
 
-            for eachU in tmp.unitList:
+            for eachU in tmp.unitList: #TODO: if changed to multi-unit -> gthis should be changed and add to queue for executing actions (not applying immediately)
                 if eachU.ownerID == 2:
                     if self.p2_actions[0][0] == "right" and eachU.y!=3:
-                        eachU.y += 1
+                        if self.check_if_it_can_move(eachU.x*4 + eachU.y+1):
+                            eachU.y += 1
                     elif self.p2_actions[0][0]== "left" and eachU.y!=0:
-                        eachU.y -= 1
+                        if self.check_if_it_can_move(eachU.x*4 + eachU.y-1):
+                            eachU.y -= 1
                     elif self.p2_actions[0][0] == "up" and eachU.x!=0:
-                        eachU.x -= 1
+                        if self.check_if_it_can_move((eachU.x-1)*4 + eachU.y):
+                            eachU.x -= 1
                     elif self.p2_actions[0][0] == "down" and eachU.x!=3:
-                        eachU.x += 1
+                        if self.check_if_it_can_move((eachU.x+1)*4 + eachU.y):
+                            eachU.x += 1
 
                     elif self.p2_actions[0][0] == "attack":
                         unitName = self.p2_actions[0][1]
                         targetUnit = tmp.returnUnitbyName(tmp.unitList, unitName)
-                        if eachU.canAttack(targetUnit):
+                        targetPrevUnit = self.returnUnitbyName(self.unitList, unitName)
+                        # print(targetUnit.x)
+                        # print(targetUnit.y)
+                        if eachU.canAttack(targetPrevUnit):
                             targetUnit.hitpoints -= 1
                         
             
                 elif eachU.ownerID == 1:
                     if action == "right" and eachU.y!=3:
-                        eachU.y += 1
+                        tmp.p1_actions.append([action, None])
                         index = 17
-                        tmp.p1_actions.append([action, None])
+                        if self.check_if_it_can_move(eachU.x*4 + eachU.y+1):
+                            eachU.y += 1
+                            
+                            
                     elif action == "left" and eachU.y!=0:
-                        eachU.y -= 1
+                        tmp.p1_actions.append([action, None])
                         index = 16
-                        tmp.p1_actions.append([action, None])
+                        if self.check_if_it_can_move(eachU.x*4 + eachU.y-1):
+                            eachU.y -= 1
+                            
+                            
                     elif action == "up" and eachU.x!=0:
-                        eachU.x -= 1
+                        tmp.p1_actions.append([action, None])
                         index = 18
-                        tmp.p1_actions.append([action, None])
+                        if self.check_if_it_can_move((eachU.x-1)*4 + eachU.y):
+                            eachU.x -= 1
+                            
+                            
                     elif action == "down" and eachU.x!=3:
-                        eachU.x += 1
-                        index = 19
                         tmp.p1_actions.append([action, None])
+                        index = 19
+                        if self.check_if_it_can_move((eachU.x+1)*4 + eachU.y):
+                            eachU.x += 1
+                            
+                
                     elif action[:6] == "attack":
                         unitName = action[7:]
                         targetUnit = tmp.returnUnitbyName(tmp.unitList, unitName)
-                        tmp.p1_actions.append([action[:6], targetUnit.name])
-                        if eachU.canAttack(targetUnit):
+                        targetPrevUnit = self.returnUnitbyName(self.unitList, unitName)
+                        # print(targetUnit.x)
+                        # print(targetUnit.y)
+                        tmp.p1_actions.append([action[:6], unitName])
+                        if eachU.canAttack(targetPrevUnit):
                             targetUnit.hitpoints -= 1
                         index = targetUnit.x * 4 + targetUnit.y
+                    
+                    else:
+                        index = 20
+                        assert 7!=7
+                        
             # print(tmp.p1_actions)        
             tmp.update_board()
             tmp.updatePlayerBasedList()
+            # print("================END OF Make MOVE\n")
         # tmp.Draw()
         
         if tmp.unitList:
@@ -539,6 +584,7 @@ class rangedUnit(Unit):
 
     def allPossibleActions(self, unitList):
         Pool = ["left", "right", "up", "down"]
+
         if self.y ==0:
             Pool.remove("left")
         if self.y ==3:
@@ -563,7 +609,9 @@ class rangedUnit(Unit):
             if self.canAttack(targetUnit):
                 Pool.append("attack_%s"%targetUnit.name)
 
-        random.shuffle(Pool)
+        # random.shuffle(Pool)
+        # print(Pool)
+        # input()
         return Pool
 
 
@@ -678,29 +726,65 @@ def evaluate(action, u_me, b, board):
         elif action == "nothing":
             print("ACTION: WAIT")
 
+# def create_dataset(board):
+#     data = np.zeros((4, 4, 2))
+#     fourth_layer = np.zeros((4, 4, 1))
+#     if board.nodeType == "max":
+#         for eachU in board.unitList:
+#             if eachU.ownerID == 2:
+#                 data[eachU.x][eachU.y] = [1, 0]
+#             else:
+#                 data[eachU.x][eachU.y] = [0, 1]
+#             fourth_layer[eachU.x][eachU.y] = eachU.hitpoints
+#         print(data)
+#         third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
+#         data = np.concatenate((data,third_layer), axis = 2)
+#         print(data)
+
+#         data = np.concatenate((data,fourth_layer), axis = 2)
+#         print(data.reshape(3,4,4))
+#         print(data.reshape(4,3,4))
+#         input(data)
+#     elif board.nodeType == "min":
+#         for eachU in board.unitList:
+#             if eachU.ownerID == 2:
+#                 data[eachU.x][eachU.y] = [1, 0]
+#             else:
+#                 data[eachU.x][eachU.y] = [0, 1]
+#         third_layer = np.ones((4,4,1))
+#         data = np.concatenate((data,third_layer), axis = 2)
+    
+#     return data
 
 def create_dataset(board):
-    data = np.zeros((4, 4, 2))
+    data = np.zeros((2, 4, 4))
+    fourth_layer = np.zeros((1, 4, 4))
     if board.nodeType == "max":
         for eachU in board.unitList:
             if eachU.ownerID == 2:
-                data[eachU.x][eachU.y] = [1, 0]
+                data[0][eachU.x][eachU.y] = 1
+                fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
             else:
-                data[eachU.x][eachU.y] = [0, 1]
-        third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
-        data = np.concatenate((data,third_layer), axis = 2)
-            
+                data[1][eachU.x][eachU.y] = 1
+                fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
+
+        third_layer = np.zeros((1,4,4)) #Player turn to play - o for p2 (player1)
+        data = np.concatenate((data,third_layer, fourth_layer))
+
+
     elif board.nodeType == "min":
         for eachU in board.unitList:
             if eachU.ownerID == 2:
-                data[eachU.x][eachU.y] = [1, 0]
+                data[0][eachU.x][eachU.y] = 1
+                fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
             else:
-                data[eachU.x][eachU.y] = [0, 1]
-        third_layer = np.ones((4,4,1))
-        data = np.concatenate((data,third_layer), axis = 2)
-    
+                data[1][eachU.x][eachU.y] = 1
+                fourth_layer[0][eachU.x][eachU.y] = eachU.hitpoints
+
+        third_layer = np.ones((1,4,4))
+        data = np.concatenate((data,third_layer, fourth_layer))
+
     return data
-    
 ###############################################################################################################
 #                                                                                                             #
 #                                                    Main                                                     #
@@ -711,22 +795,20 @@ def create_dataset(board):
 def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
     b = Board()
     b.Draw()
-
-    u2 = rangedUnit(x1, y1, "R2", 2, 4)
-    u5 = rangedUnit(x2, y2, "R1", 1, 10)
-    # u6 = rangedUnit(x3, y3, "R3", 1, 10)
-
+    h1 = np.random.randint(1,6) #1-5
+    h2 = np.random.randint(1,6) #1-5
+    u2 = rangedUnit(x1, y1, "R2", 2, h1)
+    u5 = rangedUnit(x2, y2, "R1", 1, h2)
+    # u2 = rangedUnit(2, 0, "R2", 2, 2)
+    # u5 = rangedUnit(2, 1, "R1", 1, 3)
     b.unitList.append(u2)
     b.unitList.append(u5)
-    # b.unitList.append(u6)
 
     print(b.unitList)
     b.updatePlayerBasedList()
-    print(b.playerBasedList)
+    # print(b.playerBasedList)
     b.update_board()
     b.Draw()
-    print(b.unitList)
-    # input()
 
     gameOver = False
     t = 0
@@ -737,51 +819,42 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
     memory_z = []
     # one game -> to the end
     root = b
+    tree.Pi[b] = 1 #assigning root to 1
     print(root.hash())
     # input("THIS WAS ROOT")
 
     while(gameOver==False):
         for u in b.unitList:
-            if u ==u2: # the player we are intertsed to learn its behaviour! (Ranged unit for now, and the behaviour is "attack closeset" for now!)
+            if u ==u2: # we should call first max and then min node
                 # HERE WE CALL ALPHA ZERO
                 memory_states.append(b)
-                tree.Pi[b.hash()] = 1 #assigning root to 1
-                for j in range(5):
+                for j in range(30):
                     tree.do_rollout(b, model)
                 pi = tree.returnDist(b)
+                # print("after visit array/ pi from tree")
+                # print(pi)
                 memory_pi.append(pi)
                 b = tree.choose(b)
+                # print(b.hash())
+                # input("CHOSE FOR MAX")
 
             else:
                 memory_states.append(b)
-                tree.Pi[b.hash()] = 1 #assigning root to 1
-                for j in range(5):
+                for j in range(30):
                     tree.do_rollout(b, model)
                 pi = tree.returnDist(b)
+                # print("after visit array/ pi from tree")
+                # print(pi)
                 memory_pi.append(pi)
                 b = tree.choose(b)
+                # print(b.hash())
+                # input("CHOSE FOR MIN")
 
-
-        # print(u5.actionList)
-        # print(u2.actionList)
-
-        # print("\nLET'S EVALUATE\n\n")
-
-        # evaluate
-        # for eachU in b.unitList:
-        #     if eachU.actionList:
-        #         action1 = eachU.actionList.pop(0)
-        #         print("FIRST ACTION of %s POPPED: "%eachU.name)
-        #         if len(eachU.actionList) != 0:
-        #             AssertionError
-        #         print(action1)
-        #         evaluate(action1, eachU, b, b.board)
         print(b.p1_actions)
         print(b.p2_actions)
         b.updatePlayerBasedList()
         b.update_board()
         b.Draw()
-        # input("NEXT FIND CHILDREN for the next play")
  
         if b.isOver():
             gameOver =True
@@ -805,18 +878,19 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
         val = 1
         for _ in range(len(memory_states)):
             memory_z.append(val)
-            val *= -1
+            # val *= -1
     elif root.nodeType == "max" and b.winner == 1:
         val = -1
         for _ in range(len(memory_states)):
             memory_z.append(val)
-            val *= -1     
+            # val *= -1     
     
     elif root.nodeType == "max" and b.winner == 0.5:
-        val = 0.5
+        val = 0
         for _ in range(len(memory_states)):
             memory_z.append(float(val))
     return b.winner, memory_states, memory_pi, memory_z
+
 
 
 ############################################# DAGGER: # TODO: bring it outside of main later
@@ -836,53 +910,280 @@ def win_loss_percentage(winnerList):
             
 
 if __name__ == "__main__":
+    import keras as k
     WINNER_LIST = []
-    input_shape = (4, 4, 3)
+    input_shape = (4, 4, 4)
     dim_of_policy = 21
     dim_of_value = 1
     model = NN(input_shape, dim_of_policy, dim_of_value)
     model.compile_model(loss_classification='categorical_crossentropy',
                     loss_detection='mean_squared_error',
-                        optimizer='adam') #should it be called once?
+                        optimizer=k.optimizers.Adam(learning_rate=0.01, clipnorm=1.0)  #, clipvalue=0.5
+                        )
     max_iterations = 30
+
+    training = True
+    if training:
+        for itr in range(20):
+            dataset = []
+            pi_list = []
+            z_list = []
+            for i in range(20):
+                x1 = np.random.randint(4)
+                y1 = np.random.randint(4)
+                x2 = np.random.randint(4)
+                y2 = np.random.randint(4)   
+                while(x1==x2 and y1==y2):
+                    x1 = np.random.randint(4)
+                    y1 = np.random.randint(4)
+                    x2 = np.random.randint(4)
+                    y2 = np.random.randint(4)
+                #1,1,3,3,1, 1
+                winner, states, pis, zs = start(x1,y1,x2,y2,1,1, max_iterations, model) # one self-play
+                # print(states, pis, zs)
+                for each in states:
+                    print(each.hash())
+                    dataset.append(create_dataset(each))
+                for p in pis:
+                    pi_list.append(p)
+                for z in zs:
+                    z_list.append(z)
+
+            from keras import backend as k
+            from keras.callbacks import ModelCheckpoint
+
+            NP_dataset = np.array(dataset)
+            NP_pi_list = np.array(pi_list)
+            NP_z_list = np.array(z_list).reshape(len(z_list), 1)
+            print(NP_dataset.shape)
+            print(NP_pi_list.shape)
+            print(NP_z_list.shape)
+            for layer in model.model.layers: 
+                print(layer.get_config(), layer.get_weights())
+                print("$$$$$$$$$$$$$\n")
+            # input()
+            checkpoint = ModelCheckpoint(filepath="callback/best.h5", 
+                             monitor='loss',
+                             verbose=1, 
+                             save_best_only=True,
+                             mode='min')
+            history = model.fit_model(NP_dataset, NP_pi_list, NP_z_list, epochs=100, batch_size=4)
+            
+            input()
+            for layer in model.model.layers: 
+                print(layer.get_config(), layer.get_weights())
+                print("$$$$$$$$$$$$$\n")
+            # input()
+            print(history.history['loss'])
+            if np.isnan(history.history['loss'][0]):
+
+                for layer in model.model.layers: 
+                    print(layer.get_config(), layer.get_weights())
+                    print("$$$$$$$$$$$$$\n")
+                print("HERE")
+                a = model.model.predict(NP_dataset)
+                pred = a[0]
+                print(pred.shape)
+                val = pred[1]
+                print(val.shape)
+                print(NP_pi_list.shape)
+                print(val)
+                print(pred)
+                print(NP_pi_list)
+                print(NP_dataset)
+                print(tf.keras.losses.categorical_crossentropy(NP_pi_list, pred))
+                input()
+
+            print("INJAAA")
+            # input()
+
+            print(model.model.summary())
+            print("END OF one big ITER")
+
+            model_json = model.model.to_json()
+            with open("model3/model_%s.json"%itr, "w") as json_file:
+                json_file.write(model_json)
+            # serialize weights to HDF5
+            model.model.save_weights("model3/model_%s.h5"%itr)
+            print("Saved model to disk")
+
+    itr = 7
+    # load json and create model
+    json_file = open('model3/model_%s.json'%itr, 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_model = model_from_json(loaded_model_json)
+    # load weights into new model
+    loaded_model.load_weights("model3/model_%s.h5"%itr)
+    print("Loaded model from disk")
+    # compile_model
+    loaded_model.compile(
+            loss={'output_head1': 'categorical_crossentropy', 'output_head2': 'mean_squared_error'},
+            optimizer='adam',
+            metrics={'output_head1': 'accuracy', 'output_head2': 'mean_squared_error'}
+        )
+
+    # score = loaded_model.predict(data)
+    print("*****************\n\n")
+    b = Board()
+    b.Draw()
+    x1 = 2
+    y1 = 2
+    x2 = 1
+    y2 = 1
+    u2 = rangedUnit(x1, y1, "R2", 2, 5)
+    u5 = rangedUnit(x2, y2, "R1", 1, 5)
+
+    b.unitList.append(u2)
+    b.unitList.append(u5)
+    print(b.unitList)
+
+    b.updatePlayerBasedList()
+    print(b.playerBasedList)
+    b.update_board()
+    b.Draw()
+    print(b.unitList)
+
+    gameOver = False
+    t = 0
     dataset = []
-    pi_list = []
-    z_list = []
+    labels = []
+    count = 0
 
-    for i in range(30):
-        x1 = np.random.randint(4)
-        y1 = np.random.randint(4)
-        x2 = np.random.randint(4)
-        y2 = np.random.randint(4)   
-        while(x1==x2 and y1==y2):
-            x1 = np.random.randint(4)
-            y1 = np.random.randint(4)
-            x2 = np.random.randint(4)
-            y2 = np.random.randint(4)
-        #1,1,3,3,1, 1
-        winner, states, pis, zs = start(x1,y1,x2,y2,1,1, max_iterations, model) # one self-play
-        # print(states, pis, zs)
-        
-        for each in states:
-            dataset.append(create_dataset(each))
-        for p in pis:
-            pi_list.append(p)
-        for z in zs:
-            z_list.append(z)
+    while(gameOver==False):
+        for u in b.unitList:
+            if u ==u2:
+                data = create_dataset(b)
+                out = model.model.predict(data.reshape(1,4,4,4))
+                P = out[0][0]
+                v = out[1][0][0]
+                print(P, v)
+                pool = u.allPossibleActions(b.unitList)
+                print(pool)
+                mask_array = np.zeros(21)
+                for each in pool:
+                    if each == "left":
+                        mask_array[16] = 1
+                    elif each == "right":
+                        mask_array[17] = 1
+                    elif each == "up":
+                        mask_array[18] = 1
+                    elif each == "down":
+                        mask_array[19] = 1
+                    elif each[:6] == "attack":
+                        opponentName = each[7:]
+                        opponentUnit = b.returnUnitbyName(b.unitList, opponentName)
+                        pos = opponentUnit.x * 4 + opponentUnit.y
+                        mask_array[pos] = 1
+                P*=mask_array
+                P/= sum(P)
+                print(P)
+                # P /= sum(P)
+                # pList = P.tolist()
+                # print(pList)
+                action_selected = P.tolist().index(np.random.choice(P, p=P)) # make it return index
+                print(action_selected)
+                if action_selected >=0 and action_selected <=15:
+                    print("pos: ", action_selected)
+                    if u.canAttack(u5):
+                        u.actionList.append(["attack", u5.name])
+                    # if u5.x*4 + u5.y == action_selected:
+                    #     u.actionList.append(["attack", u5.name])
+                    # else:
+                    #     print("NO UNIT FOUND ON POS: ", action_selected)
+                    # targetUnit = b.returnUnitbyPos(b.unitList, action_selected/4, action_selected%4)
+                    # print(targetUnit)
+                    # if targetUnit:
+                        # u.actionList.append(["attack", targetUnit.name])
+                    # else:
+                        # print("NO UNIT FOUND ON POS: ", action_selected)
+                        # u.actionList.append(["None", None])
+                elif action_selected ==16:
+                    u.actionList.append(["left", None])
+                elif action_selected ==17:
+                    u.actionList.append(["right", None])
+                elif action_selected ==18:
+                    u.actionList.append(["up", None])
+                elif action_selected ==19:
+                    u.actionList.append(["down", None])
+                else:
+                    pass
+                    # u.actionList.append(["None", None])
+
+                             
+            else:
+                u.attackClosest(b.unitList)
+
+        print(u5.actionList)
+        print(u2.actionList)
+        # print(u6.actionList)
+
+        print("\nLET'S EVALUATE\n\n")
+        # print(b.unitList)
+
+        #evaluate
+        for eachU in b.unitList:
+            if eachU.actionList:
+                action1 = eachU.actionList.pop(0)
+                print("FIRST ACTION of %s POPPED: "%eachU.name)
+                if len(eachU.actionList) != 0:
+                    AssertionError
+                print(action1)
+                # print("ACTION IN BUD")
+                evaluate(action1, eachU, b, b.board)
+
+        b.updatePlayerBasedList()
+        b.update_board()
+        b.Draw()
 
 
-    dataset = np.array(dataset)
-    pi_list = np.array(pi_list)
-    z_list = np.array(z_list).reshape(len(z_list), 1)
-    print(dataset.shape)
-    print(pi_list.shape)
-    print(z_list.shape)
-    model.fit_model(dataset, pi_list, z_list, epochs=50, batch_size=8)
+        # b.find_children()
+        # input("NEXT FIND CHILDREN for the next play")
+ 
+        if b.isOver():
+            gameOver =True
+            b.is_over = True
 
-    data = np.zeros((4, 4, 2))
-    data[1,1] = [1,0]
-    data[3,3] = [0,1]
+        for u in b.unitList:
+            print(u.name, ": ", u.hitpoints, "\t", u.x,"\t", u.y, "\t", u.x*4 + u.y)
 
-    third_layer = np.ones((4,4,1))
-    data = np.concatenate((data,third_layer), axis = 2).reshape(1, 4,4,3)
-    print(model.model.predict(data))
+        # print(t)
+        input("T=%s ended!\n\n"%t)
+        t +=1
+ 
+        # input("end of round\n")
+
+
+    # data = np.zeros((2, 4, 4))
+    # data[0][1][1] = 1
+    # data[1][3][3] = 1
+
+    # third_layer = np.zeros((1,4,4))
+    # fourth_layer = np.zeros((1,4,4))
+    # fourth_layer[0][1][1] = 1
+    # fourth_layer[0][3][3] = 3
+    # data = np.concatenate((data,third_layer, fourth_layer)).reshape(1, 4,4,4)
+    # print(model.model.predict(data))
+
+
+    # data = np.zeros((2, 4, 4))
+    # data[0][2][2] = 1
+    # data[1][3][3] = 1
+
+    # third_layer = np.zeros((1,4,4))
+    # fourth_layer = np.zeros((1,4,4))
+    # fourth_layer[0][2][2] = 2
+    # fourth_layer[0][3][3] = 2
+    # data = np.concatenate((data,third_layer, fourth_layer)).reshape(1, 4,4,4)
+    # print(model.model.predict(data))
+
+    # data = np.zeros((2, 4, 4))
+    # data[0][2][2] = 1
+    # data[1][2][1] = 1
+
+    # third_layer = np.ones((1,4,4))
+    # fourth_layer = np.zeros((1,4,4))
+    # fourth_layer[0][2][2] = 2
+    # fourth_layer[0][2][1] = 1
+    # data = np.concatenate((data,third_layer, fourth_layer)).reshape(1, 4,4,4)
+    # print(model.model.predict(data))
