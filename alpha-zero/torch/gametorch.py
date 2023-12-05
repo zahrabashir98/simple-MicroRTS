@@ -1,13 +1,13 @@
 import math
 import numpy as np
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, BatchNormalization
 from random import choice
 import itertools
 import copy
 import random
 from collections import namedtuple
-from MCTS import MCTS, Node
-from NN import *
-from tensorflow.keras.models import model_from_json
+from MCTStorch import MCTS, Node
+from torchNN import *
 
 # np.random.seed(1)
 # random.seed(1)
@@ -725,35 +725,6 @@ def evaluate(action, u_me, b, board):
         elif action == "nothing":
             print("ACTION: WAIT")
 
-# def create_dataset(board):
-#     data = np.zeros((4, 4, 2))
-#     fourth_layer = np.zeros((4, 4, 1))
-#     if board.nodeType == "max":
-#         for eachU in board.unitList:
-#             if eachU.ownerID == 2:
-#                 data[eachU.x][eachU.y] = [1, 0]
-#             else:
-#                 data[eachU.x][eachU.y] = [0, 1]
-#             fourth_layer[eachU.x][eachU.y] = eachU.hitpoints
-#         print(data)
-#         third_layer = np.zeros((4,4,1)) #Player turn to play - o for p2 (player1)
-#         data = np.concatenate((data,third_layer), axis = 2)
-#         print(data)
-
-#         data = np.concatenate((data,fourth_layer), axis = 2)
-#         print(data.reshape(3,4,4))
-#         print(data.reshape(4,3,4))
-#         input(data)
-#     elif board.nodeType == "min":
-#         for eachU in board.unitList:
-#             if eachU.ownerID == 2:
-#                 data[eachU.x][eachU.y] = [1, 0]
-#             else:
-#                 data[eachU.x][eachU.y] = [0, 1]
-#         third_layer = np.ones((4,4,1))
-#         data = np.concatenate((data,third_layer), axis = 2)
-    
-#     return data
 
 def create_dataset(board):
     data = np.zeros((2, 4, 4))
@@ -798,9 +769,8 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
     h2 = np.random.randint(1,6) #1-5
     u2 = rangedUnit(x1, y1, "R2", 2, h1)
     u5 = rangedUnit(x2, y2, "R1", 1, h2)
-    # print(h1, h2,x1, y1,x2, y2)
-    # u2 = rangedUnit(0, 0, "R2", 2, 1)
-    # u5 = rangedUnit(0, 2, "R1", 1, 1)
+    # u2 = rangedUnit(2, 3, "R2", 2, 1)
+    # u5 = rangedUnit(3, 2, "R1", 1, 1)
     b.unitList.append(u2)
     b.unitList.append(u5)
 
@@ -812,7 +782,7 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
 
     gameOver = False
     t = 0
-    maxFlag = False
+
     tree = MCTS()  #??
     memory_states  = []
     memory_pi = []
@@ -828,25 +798,22 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
             if u ==u2: # we should call first max and then min node
                 # HERE WE CALL ALPHA ZERO
                 memory_states.append(b)
-                for j in range(50):
-                    b.Draw()
+                for j in range(10):
                     tree.do_rollout(b, model)
-                    # print("ROLLOUT NUMBER ", j)
-                    # input()
                 pi = tree.returnDist(b)
+                # print(pi)
+                # input("One pi")
                 memory_pi.append(pi)
                 b = tree.choose(b)
 
 
             else:
-                print("PLAYER 2's turn")
                 memory_states.append(b)
-                for j in range(50):
-                    b.Draw()
+                for j in range(10):
                     tree.do_rollout(b, model)
-                    # print("ROLLOUT NUMBER ", j)
-                    # input()
                 pi = tree.returnDist(b)
+                # print(pi)
+                # input("One pi")
                 memory_pi.append(pi)
                 b = tree.choose(b)
 
@@ -872,7 +839,6 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
             # input("MORE THAN 100, exit") #TODO: check how often?
             b.is_over = True
             b.winner = 0.5
-            maxFlag = True
             break
  
     # input("biroone while\n")
@@ -892,9 +858,11 @@ def start(x1, y1, x2, y2,x3, y3, max_iterations, model):
         for _ in range(len(memory_states)):
             memory_z.append(float(val))
     
-    # input()
-
-    return b.winner, memory_states, memory_pi, memory_z, maxFlag
+    # print("-------------------------")
+    # print(tree.Pi)
+    # print(tree.childrenObjects)
+    # print("-------------------------")
+    return b.winner, memory_states, memory_pi, memory_z
 
 
 
@@ -920,20 +888,20 @@ if __name__ == "__main__":
     input_shape = (4, 4, 4)
     dim_of_policy = 21
     dim_of_value = 1
-    model = NN(input_shape, dim_of_policy, dim_of_value)
-    model.compile_model(loss_classification='categorical_crossentropy',
-                    loss_detection='mean_squared_error',
-                        optimizer='adam' #k.optimizers.Adam(learning_rate=0.001, clipnorm=1.0)  #, clipvalue=0.5
-                        )
-    max_iterations = 40
+    model = Network()
+    criterion_policy = nn.CrossEntropyLoss()
+    criterion_value = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+    max_iterations = 30
 
     training = True
     if training:
-        for itr in range(1):
+        for itr in range(3):
             dataset = []
             pi_list = []
             z_list = []
-            for i in range(1):
+            for i in range(2):
                 x1 = np.random.randint(4)
                 y1 = np.random.randint(4)
                 x2 = np.random.randint(4)
@@ -943,78 +911,56 @@ if __name__ == "__main__":
                     y1 = np.random.randint(4)
                     x2 = np.random.randint(4)
                     y2 = np.random.randint(4)
-                #1,1,3,3,1, 1
-                winner, states, pis, zs, max_flag = start(x1,y1,x2,y2,1,1, max_iterations, model) # one self-play
+
+                winner, states, pis, zs = start(x1,y1,x2,y2,1,1, max_iterations, model) # one self-play
                 # print(states, pis, zs)
-                
-                if max_flag == False:
-                    for each in states:
-                        print(each.hash())
-                        dataset.append(create_dataset(each))
-                    for p in pis:
-                        pi_list.append(p)
-                    for z in zs:
-                        z_list.append(z)
+                for each in states:
+                    print(each.hash())
+                    dataset.append(create_dataset(each))
+                for p in pis:
+                    pi_list.append(p)
+                for z in zs:
+                    z_list.append(z)
 
-
-            NP_dataset = np.array(dataset)
-            NP_pi_list = np.array(pi_list)
-            NP_z_list = np.array(z_list).reshape(len(z_list), 1)
-            print(NP_dataset.shape)
-            print(NP_pi_list.shape)
-            print(NP_z_list.shape)
-
-            # checkpoint_filepath = 'checkpoint.h5'
-            # model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-            #     filepath=checkpoint_filepath,
-            #     save_weights_only=True,
-            #     monitor='loss',
-            #     mode='min',
-            #     save_best_only=True)
-
-            history = model.fit_model(NP_dataset, NP_pi_list, NP_z_list, epochs=100, batch_size=16)
-            input()
-
-            if np.isnan(history.history['loss'][0]):
-                for layer in model.model.layers: 
-                    print(layer.get_config(), layer.get_weights())
-                    print("$$$$$$$$$$$$$\n")
-                print("HERE")
-                a = model.model.predict(NP_dataset)
-                pred = a[0]
-                print(pred.shape)
-                val = pred[1]
-                print(val.shape)
-                print(NP_pi_list.shape)
-                print(val)
-                print(pred)
-                print(NP_pi_list)
-                print(NP_dataset)
-                print(tf.keras.losses.categorical_crossentropy(NP_pi_list, pred))
-                input()
-
-            print("INJAAA")
+            print(pi_list)
+            tensor_dataset = torch.tensor(dataset, dtype=torch.float32 )
+            tensor_pi_list = torch.tensor(pi_list, dtype=torch.float32)
+            tensor_z_list = torch.tensor(z_list, dtype=torch.float32).reshape(len(z_list), 1)
+            print(tensor_dataset.shape)
+            print(tensor_pi_list.shape)
+            print(tensor_z_list.shape)
+            
+            optimizer.zero_grad()
+            outputs_policy, outputs_value = model(tensor_dataset)
+            print("IN")
+            print(tensor_pi_list)
+            print(outputs_value)
+            print(outputs_policy)
+            
+            loss_policy = criterion_policy(outputs_policy, tensor_pi_list)
+            print(loss_policy.item())
+            loss_value = criterion_value(outputs_value, tensor_z_list)
+            print(loss_value.item())
+            loss = loss_policy + loss_value
+            loss.backward()
+            optimizer.step()
             # input()
+            print(loss)
 
-            print(model.model.summary())
+            # print(model.model.summary())
             print("END OF one big ITER")
 
-            model_json = model.model.to_json()
-            with open("test/model_%s.json"%itr, "w") as json_file:
-                json_file.write(model_json)
-            # serialize weights to HDF5
-            model.model.save_weights("test/model_%s.h5"%itr)
-            print("Saved model to disk")
 
+
+    #########
     # itr = 7
     # load json and create model
-    # itr = 0
-    # json_file = open('test/model_%s.json'%itr, 'r')
+    # json_file = open('model3/model_%s.json'%itr, 'r')
     # loaded_model_json = json_file.read()
     # json_file.close()
     # loaded_model = model_from_json(loaded_model_json)
     # # load weights into new model
-    # loaded_model.load_weights("test/model_%s.h5"%itr)
+    # loaded_model.load_weights("model3/model_%s.h5"%itr)
     # print("Loaded model from disk")
     # # compile_model
     # loaded_model.compile(
@@ -1022,9 +968,8 @@ if __name__ == "__main__":
     #         optimizer='adam',
     #         metrics={'output_head1': 'accuracy', 'output_head2': 'mean_squared_error'}
     #     )
-    # score = loaded_model.predict(data)
 
-    input()
+    # score = loaded_model.predict(data)
     print("*****************\n\n")
     b = Board()
     b.Draw()
@@ -1032,8 +977,8 @@ if __name__ == "__main__":
     y1 = 2
     x2 = 1
     y2 = 1
-    u2 = rangedUnit(2, 1, "R2", 2, 3)
-    u5 = rangedUnit(2, 2, "R1", 1, 3)
+    u2 = rangedUnit(x1, y1, "R2", 2, 5)
+    u5 = rangedUnit(x2, y2, "R1", 1, 5)
 
     b.unitList.append(u2)
     b.unitList.append(u5)
@@ -1055,7 +1000,9 @@ if __name__ == "__main__":
         for u in b.unitList:
             if u ==u2:
                 data = create_dataset(b)
-                out = model.model.predict(data.reshape(1,4,4,4))
+                # out = model.model.predict(data.reshape(1,4,4,4))
+                # with torch.no_grad():  # Disable gradient tracking during inference
+                #     p, v = model(tensor_data)
                 P = out[0][0]
                 v = out[1][0][0]
                 print(P, v)
@@ -1088,7 +1035,17 @@ if __name__ == "__main__":
                     print("pos: ", action_selected)
                     if u.canAttack(u5):
                         u.actionList.append(["attack", u5.name])
-
+                    # if u5.x*4 + u5.y == action_selected:
+                    #     u.actionList.append(["attack", u5.name])
+                    # else:
+                    #     print("NO UNIT FOUND ON POS: ", action_selected)
+                    # targetUnit = b.returnUnitbyPos(b.unitList, action_selected/4, action_selected%4)
+                    # print(targetUnit)
+                    # if targetUnit:
+                        # u.actionList.append(["attack", targetUnit.name])
+                    # else:
+                        # print("NO UNIT FOUND ON POS: ", action_selected)
+                        # u.actionList.append(["None", None])
                 elif action_selected ==16:
                     u.actionList.append(["left", None])
                 elif action_selected ==17:

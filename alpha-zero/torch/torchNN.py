@@ -3,6 +3,7 @@ print(torch.__version__)
 
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 
 class Network(nn.Module):
     def __init__(self):
@@ -60,33 +61,33 @@ class Network(nn.Module):
 # model = Network()
 # print(model)
 
-import numpy as np
-import torch.optim as optim
+# import numpy as np
+# import torch.optim as optim
 
-data = np.zeros((1, 4, 4, 4), dtype=np.float32)
-data[0, 0, 1, 1] = 1.0
-data[0, 0, 3, 3] = 1.0
-data[0, 1, 1, 1] = 1.0
-data[0, 1, 3, 3] = 3.0
+# data = np.zeros((1, 4, 4, 4), dtype=np.float32)
+# data[0, 0, 1, 1] = 1.0
+# data[0, 0, 3, 3] = 1.0
+# data[0, 1, 1, 1] = 1.0
+# data[0, 1, 3, 3] = 3.0
 
 # Convert the numpy array to a PyTorch tensor
-data_tensor = torch.tensor(data)
-model = Network()
-# print(model)
-# print(model(data_tensor))
+# data_tensor = torch.tensor(data)
+# model = Network()
+# # print(model)
+# # print(model(data_tensor))
 
-criterion_policy = nn.CrossEntropyLoss()
-criterion_value = nn.MSELoss()
+# criterion_policy = nn.CrossEntropyLoss()
+# criterion_value = nn.MSELoss()
 
-optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-optimizer.zero_grad()
-outputs_policy, outputs_value = model(data_tensor)
-print(outputs_value.item())
-print(outputs_policy[0])
-loss_policy = criterion_policy(outputs_policy, torch.ones(1,21))
-loss_value = criterion_value(outputs_value, torch.ones([1,1]))
-loss = loss_policy + loss_value
-loss.backward()
-optimizer.step()
+# optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+# optimizer.zero_grad()
+# outputs_policy, outputs_value = model(data_tensor)
+# print(outputs_value.item())
+# print(outputs_policy[0])
+# loss_policy = criterion_policy(outputs_policy, torch.ones(1,21))
+# loss_value = criterion_value(outputs_value, torch.ones([1,1]))
+# loss = loss_policy + loss_value
+# loss.backward()
+# optimizer.step()
 
-print(loss.item())
+# print(loss.item())

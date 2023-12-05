@@ -10,7 +10,8 @@ import math
 from random import choice
 import numpy as np
 import random
-from NN import *
+import torch
+print(torch.__version__)
 
 # np.random.seed(1)
 # random.seed(1)
@@ -18,14 +19,13 @@ class MCTS:
 
     "Monte Carlo tree searcher. First rollout the tree then choose a move."
 
-    def __init__(self, exploration_weight=2):
+    def __init__(self, exploration_weight=1.5):
         self.Q = defaultdict(int)  # total reward of each node
         self.N = defaultdict(int)  # total visit count for each node
         self.children = dict()  # children of each node
         self.exploration_weight = exploration_weight
         self.childrenObjects = dict()
         self.Pi = dict()
-        self.terminal_set = set()
 
     def returnDist(self, node):
         # NodeHash = node.hash()
@@ -41,29 +41,15 @@ class MCTS:
                         if unit.ownerID ==1: #!=player 2
                             pos = unit.x*4 + unit.y
                             visit_array[pos] = self.N[child]
-                            if child.is_over == True:
-                                visit_array[pos] = 1
 
                 elif child.p2_actions[0][0] == "left":
                     visit_array[16] = self.N[child]
-                    if child.is_over == True:
-                        visit_array[16] = 1
-
                 elif child.p2_actions[0][0] == "right":
                     visit_array[17] = self.N[child]
-                    if child.is_over == True:
-                        visit_array[17] = 1
-
                 elif child.p2_actions[0][0] == "up":
                     visit_array[18] = self.N[child]
-                    if child.is_over == True:
-                        visit_array[18] = 1
-
                 elif child.p2_actions[0][0] == "down":
                     visit_array[19] = self.N[child]
-                    if child.is_over == True:
-                        visit_array[19] = 1
-
                 else:
                     visit_array[20] = 1
                     assert 10!=10
@@ -71,14 +57,14 @@ class MCTS:
         elif node.nodeType == "min": #player1's turn to play child[2] = p1_actions
             for child in self.childrenObjects[node]:
                 # input(child.p1_actions[0][0])
-                
+                print("UMAD too min - bache")
+                print(child.p1_actions[0][0])
+
                 if child.p1_actions[0][0] == "attack": #[1] is the target
                     for unit in node.unitList:
                         if unit.ownerID ==2:
                             pos = unit.x*4 + unit.y
                             visit_array[pos] = self.N[child]
-                            if child.is_over == True:
-                                visit_array[pos] = 1
                 
                 elif child.p1_actions[0][0] == "left":
                     visit_array[16] = self.N[child]
@@ -106,6 +92,11 @@ class MCTS:
                 else:
                     visit_array[20] = 1
                     assert 11!=11
+
+        print(self.childrenObjects[node])
+        print()
+        print(node.hash())
+        print(visit_array)
         try:
             visit_array /= sum(visit_array)
         except:
@@ -148,22 +139,19 @@ class MCTS:
         return best_board
         # return best_board.p2_actions
 
-    
+
     def do_rollout(self, node, model):
         "Make the tree one layer better. (Train for one iteration.)"
         print("AVVALE ROLLOUT")
-        # node.Draw()
+        terminal_set = set()
         root = node
-        path = self._select(node)
+        path = self._select(node, terminal_set)
         print("AFTER SELECT")
         print(path)
         leaf = path[-1]
-        print("selected leaf actions")
-        print("P2 Actions: ", leaf.p2_actions)
-        print("P1 Actions: ", leaf.p1_actions)
         reward = self._expand(leaf, model, root)
         if leaf.is_over == True:
-            self.terminal_set.add(leaf)
+            terminal_set.add(leaf)
             print("LEAF ADDED TO TERMINAL NODES")
         print("reward", reward)
         try:
@@ -175,9 +163,10 @@ class MCTS:
             self._backpropagate(path, reward)
         
         print("******************\n")
+    
 
 
-    def _select(self, node): # a probable error happens when you are not expanding the tree that much and i cuases you to want to select a node that it is not still in the childreb, (but it isnt a terminal or )
+    def _select(self, node, terminal_set): # a probable error happens when you are not expanding the tree that much and i cuases you to want to select a node that it is not still in the childreb, (but it isnt a terminal or )
         #solution: add a if statment, check if the node is in self.childrenobjects, otherwise, (kolan moshkele) fek kon A baz shode shode b o c -> b 5 ta child dare c d e f g - yekish expand nashode baghiash shode, baad oon yeki choose mishe chon baghie manfi budan ya harchi
         "Find an unexplored descendent of `node`"
         path = []
@@ -188,22 +177,20 @@ class MCTS:
             if node not in self.childrenObjects or not self.childrenObjects[node]:
                 return path
         
-            unexplored = self.childrenObjects[node] - self.childrenObjects.keys() - self.terminal_set
-            print(self.childrenObjects[node])
-            print("UNEXPLORED", unexplored)
+            unexplored = self.childrenObjects[node] - self.childrenObjects.keys()#- terminal_set
             if unexplored:
                 n = unexplored.pop()
                 path.append(n)
                 return path
-            print(node.hash())
-            print(self.childrenObjects[node])
+            
             node = self._uct_select(node)  # descend a layer deeper
             # print("UCT - NOW AFTER ONE LAYER DEEPENING\nNEW NODE:\n")
             # print(node.hash())
             
     
     def mask_probability_vector(self, allIndexes, P):
-        mask = np.zeros_like(P)
+        mask = np.zeros(21)
+        P = np.array(P)
         mask[allIndexes] = 1
         masked_probabilities = P * mask
         normalization_factor = np.sum(masked_probabilities)
@@ -241,7 +228,7 @@ class MCTS:
 
         return data
 
-
+    @torch.no_grad()
     def _expand(self, node, model, root):
         "Update the `children` dict with the children of `node`"
 
@@ -250,12 +237,17 @@ class MCTS:
             assert 14!=14
             return  # already expanded
     
-        data = self.create_dataset(node)
-        data = np.array(data).reshape(1, 4, 4, 4)
-        output = model.model.predict(data)
-        # print(output)
-        p = output[0][0]
-        v = output[1][0][0]
+        data = self.create_dataset(node).reshape(1, 4, 4, 4)
+
+        data = np.array(data, dtype=np.float32)
+        tensor_data = torch.tensor(data)
+        
+        with torch.no_grad():  # Disable gradient tracking during inference
+            p, v = model(tensor_data)
+
+        print(p, v)
+        p = p[0]
+        v = v.item()
         # print(p , v)
 
         try:
@@ -302,7 +294,8 @@ class MCTS:
         
         newP = self.mask_probability_vector(allIndexes, p)
         newP = np.array(newP)
-        newP = newP[allIndexes]
+        # print(newP)
+        # input("THIS IS masked PI")
         self.childrenObjects[node] = childernObjs
 
         i = 0
@@ -327,55 +320,28 @@ class MCTS:
         "Select a child of node, balancing exploration & exploitation"
         # nodeHash = node.hash()
         # All children of node should already be expanded:
-        print("IN UCT")
-        # for each in self.childrenObjects[node]:
+        assert all(n in self.childrenObjects for n in self.childrenObjects[node])
+        log_N_vertex = math.log(self.N[node]) 
+        def uct(n): # if N = 0-> ignore the first term
+            "Upper confidence bound for trees"
+            return (self.Q[n] / self.N[n]) + self.exploration_weight * self.Pi[n] * math.sqrt(
+                log_N_vertex)/ (self.N[n]+1)
 
-        # assert all(n in self.childrenObjects for n in self.childrenObjects[node])
-        # log_N_vertex = math.log(self.N[node]) 
-        # def uct(n): # if N = 0-> ignore the first term
-        #     "Upper confidence bound for trees"
-        #     return (self.Q[n] / self.N[n]) + self.exploration_weight * self.Pi[n] * math.sqrt(
-        #         log_N_vertex)/ (self.N[n]+1)
-
-        # def uctMin(n):
-        #     "Upper confidence bound for trees"
-        #     return (self.Q[n] / self.N[n]) - self.exploration_weight * self.Pi[n] * math.sqrt(
-        #         log_N_vertex)/ (self.N[n]+1)
-        scores = []
+        def uctMin(n):
+            "Upper confidence bound for trees"
+            return (self.Q[n] / self.N[n]) - self.exploration_weight * self.Pi[n] * math.sqrt(
+                log_N_vertex)/ (self.N[n]+1)
 
         if node.nodeType =="max":
             print("UCT MAX")
-            for each in self.childrenObjects[node]:
-                print(self.Pi[each])
-            print("&&&&&&&&&&&\n")
-            for child in self.childrenObjects[node]:
-                if self.N[child] == 0:
-                    q_value = 0
-                else:
-                    q_value = 1 - ((self.Q[child] / self.N[child] ) + 1) / 2
-                scores.append(q_value + self.exploration_weight * (math.sqrt(self.N[node]) / (self.N[child] + 1)) * self.Pi[child])
-            print(scores)
-            # bestobj = max(self.childrenObjects[node], key=uct)
-            # return bestobj
+            bestobj = max(self.childrenObjects[node], key=uct)
+            return bestobj
 
     
         elif node.nodeType == "min":
             print("UCT MIN")
-            for each in self.childrenObjects[node]:
-                print(self.Pi[each])
-            print("&&&&&&&&&&&\n")
-            for child in self.childrenObjects[node]:
-                if self.N[child] == 0:
-                    q_value = 0
-                else:
-                    q_value = 1 - ((self.Q[child] / self.N[child] ) + 1) / 2
-                scores.append(q_value - self.exploration_weight * (math.sqrt(self.N[node]) / (self.N[child] + 1)) * self.Pi[child])
-
-            # bestobj = min(self.childrenObjects[node], key=uctMin)
-            # return bestobj
-        max_index = scores.index(max(scores))
-
-        return self.childrenObjects[node][max_index]
+            bestobj = min(self.childrenObjects[node], key=uctMin)
+            return bestobj
 
 
 
